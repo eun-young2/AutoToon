@@ -34,7 +34,8 @@
 <br>
 
 ## 📌 SW유스케이스
-![image](https://github.com/user-attachments/assets/71ebe37b-4ea2-45ac-8860-d61992224a6a)
+![image](https://github.com/user-attachments/assets/fe4644b0-1967-4f16-8b0b-b8ea2aaaf9a7)
+
 
 
 

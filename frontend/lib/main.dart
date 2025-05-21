@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:kakao_flutter_sdk_common/kakao_flutter_sdk_common.dart';
 
 void main() {
-  KakaoSdk.init(nativeAppKey: '${357e8702e8dc4cd5b00e4945d74252d1}');
+  KakaoSdk.init(nativeAppKey: '357e8702e8dc4cd5b00e4945d74252d1');
   runApp(const MainApp());
 }
 

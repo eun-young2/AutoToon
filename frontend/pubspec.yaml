@@ -1,37 +1,37 @@
-  name: dx_project_dev2
-  publish_to: 'none'
-  version: 1.0.0+1
+name: dx_project_dev2
+publish_to: 'none'
+version: 1.0.0+1
 
-  environment:
-    sdk: '>=2.18.0 <3.0.0'
+environment:
+  sdk: '>=2.18.0 <3.0.0'
 
-  dependencies:
-    flutter:
-      sdk: flutter
-    provider: ^6.0.0
-
-    # 캘린더 리이브러리
-    table_calendar: any
-    # 캘린더 한국어 번역할때
-    flutter_localizations:
-      sdk: flutter
-    # 아이콘 라이브러리
-    line_awesome_flutter: ^3.0.1
-    cupertino_icons: ^1.0.2
-
-    intl: any
-    image_picker: ^0.8.7+4
-    dotted_border: ^2.0.0
-    country_picker: ^2.0.27
-  kakao_flutter_sdk_user: ^1.9.5
-
-  dev_dependencies:
-    flutter_test:
-      sdk: flutter
-    flutter_lints: ^2.0.0
-
+dependencies:
   flutter:
-    uses-material-design: true
-    assets:
-      - assets/images/
-      - assets/imgsauce/
+    sdk: flutter
+  provider: ^6.0.0
+
+  # 캘린더 리이브러리
+  table_calendar: any
+  # 캘린더 한국어 번역할때
+  flutter_localizations:
+    sdk: flutter
+  # 아이콘 라이브러리
+  line_awesome_flutter: ^3.0.1
+  cupertino_icons: ^1.0.2
+
+  intl: any
+  image_picker: ^0.8.7+4
+  dotted_border: ^2.0.0
+  country_picker: ^2.0.27
+  kakao_flutter_sdk_user: ^1.9.5  # 카카오 로그인 API 패키지 (공식 권장 버전)
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^2.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/images/
+    - assets/imgsauce/

@@ -9,60 +9,54 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
-  String _loginStatus = "로그인되지 않음";
-
   // 카카오 로그인 함수
   void kakaoLogin() async {
     bool installed = await isKakaoTalkInstalled();
 
-    if (installed) {
-      try {
-        OAuthToken token = await UserApi.instance.loginWithKakaoTalk();
-        print('카카오톡으로 로그인 성공: ${token.accessToken}');
-        setState(() {
-          _loginStatus = "카카오톡 로그인 성공";
-        });
-        // 로그인 성공 후 메인 페이지로 이동
-        Navigator.pushReplacementNamed(context, '/main');
-      } catch (error) {
-        print('카카오톡으로 로그인 실패: $error');
-        setState(() {
-          _loginStatus = "카카오톡 로그인 실패: $error";
-        });
-      }
-    } else {
-      try {
-        OAuthToken token = await UserApi.instance.loginWithKakaoAccount();
-        print('카카오계정으로 로그인 성공: ${token.accessToken}');
-        setState(() {
-          _loginStatus = "카카오계정 로그인 성공";
-        });
-        Navigator.pushReplacementNamed(context, '/main');
-      } catch (error) {
-        print('카카오계정으로 로그인 실패: $error');
-        setState(() {
-          _loginStatus = "카카오계정 로그인 실패: $error";
-        });
-      }
+    try {
+      OAuthToken token = installed
+          ? await UserApi.instance.loginWithKakaoTalk()
+          : await UserApi.instance.loginWithKakaoAccount();
+
+      print('로그인 성공: ${token.accessToken}');
+      Navigator.pushReplacementNamed(context, '/main');
+    } catch (error) {
+      print('로그인 실패: $error');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('로그인 실패: $error')),
+      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('카카오 로그인')),
-      body: Center(
+      backgroundColor: Colors.white,
+      body: SafeArea(
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(_loginStatus),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: kakaoLogin,
-              child: const Text("카카오로 로그인"),
+            const SizedBox(height: 1),
+            const Center(
+              child: Text(
+                'AutoToon',
+                style: TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+              ),
             ),
-            // 추후 공식 버튼 이미지로 교체 가능
-            // Image.asset('assets/images/kakao_login_large.png')
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+              child: GestureDetector(
+                onTap: kakaoLogin,
+                child: Image.asset(
+                  'assets/images/kakao_login_medium_wide.png',
+                  fit: BoxFit.contain,
+                ),
+              ),
+            ),
           ],
         ),
       ),

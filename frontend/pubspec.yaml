@@ -23,6 +23,7 @@
     image_picker: ^0.8.7+4
     dotted_border: ^2.0.0
     country_picker: ^2.0.27
+  kakao_flutter_sdk_user: ^1.9.5
 
   dev_dependencies:
     flutter_test:

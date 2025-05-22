@@ -9,8 +9,11 @@ import 'package:dx_project_dev2/screens/write_page.dart';
 import 'package:dx_project_dev2/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:kakao_flutter_sdk_user/kakao_flutter_sdk_user.dart';
+import 'kakao_login_page.dart'; // 경로 확인
 
 void main() {
+  KakaoSdk.init(nativeAppKey: '357e8702e8dc4cd5b00e4945d74252d1');
   runApp(const DxApp());
 }
 
@@ -25,8 +28,8 @@ class DxApp extends StatelessWidget {
         primaryColor: AppTheme.primary,
         scaffoldBackgroundColor: AppTheme.background,
         appBarTheme: const AppBarTheme(
-          backgroundColor: AppTheme.background,    // AppBar 배경을 전체 배경과 동일하게
-          elevation: 0,                             // 그림자 제거
+          backgroundColor: AppTheme.background, // AppBar 배경을 전체 배경과 동일하게
+          elevation: 0, // 그림자 제거
         ),
       ),
       initialRoute: '/login',
@@ -38,7 +41,6 @@ class DxApp extends StatelessWidget {
         '/write': (context) => const WritePage(),
         '/likes': (context) => const LikesPage(),
         '/profile': (context) => const ProfilePage(),
-
         '/detail': (context) => const DetailPage(),
       },
       localizationsDelegates: const [

@@ -1,0 +1,68 @@
+###############################
+# Backend (Python)
+###############################
+
+# Python virtual environment
+backend/venv/
+
+# Python cache
+*.pyc
+__pycache__/
+
+# Environment variables
+*.env
+
+# Logs
+*.log
+
+# Migration or temp directories
+migrate_working_dir/
+
+###############################
+# Frontend (Flutter, Dart, Android)
+###############################
+
+# Flutter/Dart/Pub related
+frontend/.dart_tool/
+frontend/.flutter-plugins
+frontend/.flutter-plugins-dependencies
+frontend/.pub-cache/
+frontend/.pub/
+frontend/build/
+frontend/doc/api/
+frontend/ios/Flutter/.last_build_id
+
+# Symbolication and obfuscation
+frontend/app.*.symbols
+frontend/app.*.map.json
+
+# Android build artifacts
+frontend/android/app/debug
+frontend/android/app/profile
+frontend/android/app/release
+
+###############################
+# Editor/IDE related
+###############################
+
+# IntelliJ IDEA
+*.iml
+*.ipr
+*.iws
+.idea/
+
+# VS Code
+.vscode/
+
+# macOS
+.DS_Store
+
+# Miscellaneous
+*.class
+*.swp
+.atom/
+.build/
+.buildlog/
+.history
+.svn/
+.swiftpm/

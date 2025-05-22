@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:kakao_flutter_sdk_user/kakao_flutter_sdk_user.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -8,34 +9,60 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
-  final TextEditingController _idCtrl = TextEditingController();
-  final TextEditingController _pwCtrl = TextEditingController();
-  bool _keepLoggedIn = false;
+  String _loginStatus = "로그인되지 않음";
+
+  // 카카오 로그인 함수
+  void kakaoLogin() async {
+    bool installed = await isKakaoTalkInstalled();
+
+    if (installed) {
+      try {
+        OAuthToken token = await UserApi.instance.loginWithKakaoTalk();
+        print('카카오톡으로 로그인 성공: ${token.accessToken}');
+        setState(() {
+          _loginStatus = "카카오톡 로그인 성공";
+        });
+        // 로그인 성공 후 메인 페이지로 이동
+        Navigator.pushReplacementNamed(context, '/main');
+      } catch (error) {
+        print('카카오톡으로 로그인 실패: $error');
+        setState(() {
+          _loginStatus = "카카오톡 로그인 실패: $error";
+        });
+      }
+    } else {
+      try {
+        OAuthToken token = await UserApi.instance.loginWithKakaoAccount();
+        print('카카오계정으로 로그인 성공: ${token.accessToken}');
+        setState(() {
+          _loginStatus = "카카오계정 로그인 성공";
+        });
+        Navigator.pushReplacementNamed(context, '/main');
+      } catch (error) {
+        print('카카오계정으로 로그인 실패: $error');
+        setState(() {
+          _loginStatus = "카카오계정 로그인 실패: $error";
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('로그인')),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
+      appBar: AppBar(title: const Text('카카오 로그인')),
+      body: Center(
         child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            TextField(controller: _idCtrl, decoration: const InputDecoration(labelText: '아이디')),
-            const SizedBox(height: 8),
-            TextField(controller: _pwCtrl, decoration: const InputDecoration(labelText: '비밀번호'), obscureText: true),
-            SwitchListTile(
-              title: const Text('로그인 상태 유지'),
-              value: _keepLoggedIn,
-              onChanged: (v) => setState(() => _keepLoggedIn = v),
-            ),
+            Text(_loginStatus),
+            const SizedBox(height: 20),
             ElevatedButton(
-              onPressed: () => Navigator.pushReplacementNamed(context, '/main'),
-              child: const Text('로그인'),
+              onPressed: kakaoLogin,
+              child: const Text("카카오로 로그인"),
             ),
-            TextButton(
-              onPressed: () => Navigator.pushNamed(context, '/signup'),
-              child: const Text('회원가입'),
-            ),
+            // 추후 공식 버튼 이미지로 교체 가능
+            // Image.asset('assets/images/kakao_login_large.png')
           ],
         ),
       ),

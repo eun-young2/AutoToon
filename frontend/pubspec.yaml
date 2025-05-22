@@ -24,6 +24,7 @@ dependencies:
   dotted_border: ^2.0.0
   country_picker: ^2.0.27
   kakao_flutter_sdk_user: ^1.9.5  # 카카오 로그인 API 패키지 (공식 권장 버전)
+  flutter_dotenv: ^5.2.1
 
 dev_dependencies:
   flutter_test:
@@ -35,3 +36,4 @@ flutter:
   assets:
     - assets/images/
     - assets/imgsauce/
+    - .env

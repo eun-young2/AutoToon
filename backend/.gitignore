@@ -1,0 +1,40 @@
+# Python bytecode
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Virtual environments
+venv/
+.env/
+.venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# dotenv 파일
+.env
+.env.*
+
+# Editor configs
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+
+# SQLite or other local DBs
+*.db
+*.sqlite3

@@ -49,7 +49,8 @@
 <br>
 
 ## 📌 ER다이어그램
-![image](https://github.com/user-attachments/assets/3ca7b750-475f-4ec6-90f7-785b5554d554)
+![Auto Toon db](https://github.com/user-attachments/assets/bef82200-06e7-4813-a709-d4d41a7fd5a0)
+
 
 
 <br>

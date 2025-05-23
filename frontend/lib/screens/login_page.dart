@@ -12,7 +12,7 @@ class LoginPage extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             // 상단 스페이서
-            const SizedBox(height: 1),
+            const SizedBox(height: 40),
 
             // 중앙 로고 텍스트
             const Center(

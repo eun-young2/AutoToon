@@ -5,8 +5,6 @@ import 'package:line_awesome_flutter/line_awesome_flutter.dart';
 import 'write_page.dart';
 import 'package:dx_project_dev2/widgets/bottom_nav.dart';
 
-
-
 class MainPage extends StatefulWidget {
   const MainPage({Key? key}) : super(key: key);
 
@@ -114,9 +112,6 @@ class _MainPageState extends State<MainPage> {
           ),
         ],
       ),
-
-      // 하단 메뉴 네비게이션
-      bottomNavigationBar: const BottomNav(currentIndex: 0),
     );
   }
 }

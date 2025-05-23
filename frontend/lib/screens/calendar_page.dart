@@ -225,7 +225,6 @@ class _CalendarPageState extends State<CalendarPage> {
           ),
         ],
       ),
-      bottomNavigationBar: const BottomNav(currentIndex: 1),
     );
   }
 }

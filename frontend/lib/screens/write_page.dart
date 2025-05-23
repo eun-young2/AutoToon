@@ -1,9 +1,12 @@
-import 'dart:io';
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:flutter/services.dart' show LengthLimitingTextInputFormatter, MaxLengthEnforcement, rootBundle; // for LengthLimitingTextInputFormatter
+import 'package:csv/csv.dart';
+import 'package:intl/intl.dart';
+import 'package:dx_project_dev2/utils/create_confirm.dart';
 import 'package:dx_project_dev2/theme/app_theme.dart';
-import 'package:dx_project_dev2/widgets/bottom_nav.dart';
-import 'package:dx_project_dev2/utils/discard_confirm.dart';
+import 'package:dx_project_dev2/widgets/loading_modal.dart';
 
 /// 전역 리스트 선언 (이미지, 텍스트, 작성시간)
 final List<XFile> postImages = [];
@@ -23,39 +26,90 @@ class WritePage extends StatefulWidget {
 
 class _WritePageState extends State<WritePage> {
   XFile? _image;
-  // ▶ 오디오 파일 경로 저장
-  File? _audioFile;
-
   final ImagePicker _picker = ImagePicker();
   final TextEditingController _titleCtrl = TextEditingController();
   final TextEditingController _contentCtrl = TextEditingController();
+  String _selectedStyle = '수채화';
+
+  // CSV에서 읽어온 문구
+  List<String> _facts = [];
+  List<String> _balancePrompts = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _contentCtrl.addListener(() => setState(() {}));
+    _loadPrompts();
+  }
+
+  @override
+  void dispose() {
+    _contentCtrl.dispose();
+    super.dispose();
+  }
+
+  /// assets/폴더에 담긴 CSV 파일을 읽어서 리스트로 변환
+  Future<void> _loadPrompts() async {
+    // 1) 지식 문구 CSV
+    final rawFacts = await rootBundle.loadString('assets/modals/Useful_information.csv');
+    final factRows = const CsvToListConverter(eol: '\n').convert(rawFacts);
+    _facts = factRows.skip(1)
+        .map((r) {
+          const title = '💡알아두면 좋은 사실!';
+          final content = '${r[1]}'.toString();
+          return '$title\n $content';
+        })
+        .toList();
+
+    // 2) 밸런스 게임 CSV (A 또는 B)
+    final rawBal = await rootBundle.loadString('assets/modals/balance_game.csv');
+    final balRows = const CsvToListConverter(eol: '\n').convert(rawBal);
+    _balancePrompts = balRows.skip(1)
+        .map((r){
+          const title = '💡밸런스 게임!!';
+          final content = '${r[1]} VS ${r[2]}';
+          return '$title\n $content';
+        })
+        .toList();
+
+    setState(() {}); // 불러온 뒤 UI 갱신
+  }
+
+  /// 랜덤으로 문구 하나 선택
+  String get _randomPrompt {
+    final rnd = Random();
+    if (_facts.isNotEmpty && _balancePrompts.isNotEmpty) {
+      if (rnd.nextBool()) {
+        return _facts[rnd.nextInt(_facts.length)];
+      } else {
+        return _balancePrompts[rnd.nextInt(_balancePrompts.length)];
+      }
+    }
+    if (_facts.isNotEmpty) return _facts[rnd.nextInt(_facts.length)];
+    if (_balancePrompts.isNotEmpty) return _balancePrompts[rnd.nextInt(_balancePrompts.length)];
+    return '';
+  }
+
+  /// “완료” 버튼 눌렀을 때: 모달 띄우고 5초 슬립 후 메인으로 이동
+  Future<void> _onSubmit() async {
+
+    final prompt = _randomPrompt;
+    // 1) 모달 띄우기
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => LoadingModal(prompt: prompt),
+    );
+    // 2) 5초 기다림 (프로토타입)
+    await Future.delayed(const Duration(seconds: 15));
+    // 3) 닫고 메인으로
+    Navigator.of(context).pop();
+    Navigator.pushReplacementNamed(context, '/main');
+  }
 
   Future<void> _pickImage() async {
     final XFile? img = await _picker.pickImage(source: ImageSource.gallery);
     if (img != null) setState(() => _image = img);
-  }
-
-  Future<void> _pickAudio() async {
-    // TODO: audio picker 플러그인 적용
-    // 예시: FilePicker.platform.pickFiles(type: FileType.audio)
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('음성 파일 첨부 기능은 추후 구현됩니다.')),
-    );
-  }
-
-  void _submitPost() {
-    if (_image == null && _contentCtrl.text.isEmpty && _titleCtrl.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('제목, 내용 또는 이미지를 입력해주세요.')),
-      );
-      return;
-    }
-    postImages.insert(0, _image!);
-    postTitles.insert(0, _titleCtrl.text);
-    postContents.insert(0, _contentCtrl.text);
-    postDateTimes.insert(0, DateTime.now());
-
-    Navigator.pushReplacementNamed(context, '/main');
   }
 
   void _showAttachmentsMenu() {
@@ -73,14 +127,6 @@ class _WritePageState extends State<WritePage> {
                 _pickImage();
               },
             ),
-            ListTile(
-              leading: const Icon(Icons.mic),
-              title: const Text('음성 파일 첨부'),
-              onTap: () {
-                Navigator.pop(context);
-                _pickAudio();
-              },
-            ),
           ],
         ),
       ),
@@ -89,17 +135,19 @@ class _WritePageState extends State<WritePage> {
 
   @override
   Widget build(BuildContext context) {
+    final now = DateTime.now();
+    final dateString = DateFormat('yyyy년 M월 d일 EEEE', 'ko_KR').format(now);
+
     return Scaffold(
-      backgroundColor: AppTheme.background,  // ▶ 배경색 통일
+      backgroundColor: AppTheme.background,
       appBar: AppBar(
-        title: const Text('새 글 쓰기'),
+        title: const Text('새 일기 쓰기'),
         backgroundColor: AppTheme.background,
         elevation: 0,
         centerTitle: true,
         iconTheme: const IconThemeData(color: Colors.black),
         automaticallyImplyLeading: false,
         actions: [
-          // ▶ + 버튼 추가
           IconButton(
             icon: const Icon(Icons.add, color: Colors.black),
             onPressed: _showAttachmentsMenu,
@@ -107,94 +155,168 @@ class _WritePageState extends State<WritePage> {
         ],
       ),
       body: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // 제목 입력
-            TextField(
-              controller: _titleCtrl,
-              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w600),
-              decoration: const InputDecoration(
-                hintText: '제목을 입력하세요',
-                border: InputBorder.none,
+            // 날짜 표시
+            Center(
+              child: Text(
+                dateString,
+                style: const TextStyle(
+                  fontFamily: '온글잎 혜련',
+                  fontSize: 20,
+                ),
               ),
             ),
-            const Divider(),
+            const SizedBox(height: 50),
 
-            // 내용 입력
+            // 텍스트 입력박스
             Expanded(
-              child: TextField(
-                controller: _contentCtrl,
-                style: const TextStyle(fontSize: 16, height: 1.5),
-                maxLines: null,
-                expands: true,
-                decoration: const InputDecoration(
-                  hintText: '내용을 입력하세요...',
-                  border: InputBorder.none,
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(7),
+                  color: Colors.white,
+                  border: Border.all(color: Color(0xFFD3D3D3), width: 1),
+                ),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    TextField(
+                      controller: _contentCtrl,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        height: 1.5,
+                        fontFamily: 'assets/fonts/온글잎 혜련.ttf',
+                      ),
+                      maxLines: null,
+                      expands: true,
+                      maxLength: 500,
+                      decoration: const InputDecoration(
+                        hintText: '오늘의 이야기를 적어보세요',
+                        hintStyle: TextStyle(fontFamily: '온글잎 혜련', fontSize:15, color: Colors.black38,),
+                        border: InputBorder.none,
+                        contentPadding: EdgeInsets.all(12),
+                        counterText: '',
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
+            const SizedBox(height: 16),
 
-            // 첨부된 이미지
-            if (_image != null) ...[
-              const SizedBox(height: 12),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: Image.file(
-                  File(_image!.path),
-                  height: 180,
-                  width: double.infinity,
-                  fit: BoxFit.cover,
-                ),
+            // 글자 수 표시 (오른쪽 아래)
+            Align(
+              alignment: Alignment.centerRight,
+              child: Text(
+                '${_contentCtrl.text.length}/500',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: _contentCtrl.text.length >= 500
+                    ? Colors.red
+                    : Colors.grey),
               ),
-            ],
-            // 첨부된 오디오 표시
-            if (_audioFile != null) ...[
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  const Icon(Icons.mic),
-                  const SizedBox(width: 8),
-                  Expanded(child: Text(_audioFile!.path)),
-                ],
-              ),
-            ],
+            ),
 
-            const SizedBox(height: 12),
-            // 게시 버튼
-            ElevatedButton(
-              onPressed: _submitPost,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.black,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            // 스타일 라디오
+            const Text(
+              '스타일',
+              style: TextStyle(
+                fontFamily: '온글잎 혜련',
+                fontSize: 18,
               ),
-              child: const Text('제출', style: TextStyle(fontSize: 16, color: Colors.white)),
             ),
             const SizedBox(height: 10),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                _buildRadio('수채화', _selectedStyle, (v) {
+                  setState(() => _selectedStyle = v!);
+                }),
+                const SizedBox(width: 24),
+                _buildRadio('동화', _selectedStyle, (v) {
+                  setState(() => _selectedStyle = v!);
+                }),
+                const SizedBox(width: 24),
+                _buildRadio('웹툰', _selectedStyle, (v) {
+                  setState(() => _selectedStyle = v!);
+                }),
+              ],
+            ),
+            const SizedBox(height: 24),
+
+            // 완료 버튼 (오른쪽 정렬)
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  // 완료 버튼 동작 구현
+                  onPressed: () async {
+                    // 1) 내용 가져와서 앞뒤 공백 제거
+                    final content = _contentCtrl.text.trim();
+                    // 2) 비어있거나 30자 미만이면 경고
+                    if (content.isEmpty || content.length < 30) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('일기를 최소 30자 이상 입력해주세요.'),
+                        ),
+                      );
+                      return; // 밑의 _onSubmit 호출 안 함
+                    }
+                    // 1) 오토툰 생성 확인
+                    final ok = await showCreateConfirmDialog(context);
+                    if (!ok) return;
+                    // 2) 확인 받았으면 원래 로딩/이동 로직 실행
+                    _onSubmit();
+                  },
+                  child: const Text(
+                    '완료',
+                    style: TextStyle(
+                      fontFamily: '온글잎 혜련',
+                      fontSize: 18,
+                      color: Colors.black87,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+
+            // 안내 텍스트
+            const SizedBox(height: 10),
             const Text(
-              '일기 변환은 2-3분 정도 소요됩니다.',
+              '일기 생성은 2-3분 정도 소요될 수 있습니다.',
               style: TextStyle(
                 color: Colors.grey,
                 fontSize: 12,
               ),
+              textAlign: TextAlign.center,
             ),
           ],
         ),
       ),
-      bottomNavigationBar:  BottomNav(
-        currentIndex: 2,
-        onWillNavigate: (context, index) async {
-          // 다른 탭(0,1,3)으로 이동 시에만 확인창 띄우고,
-          // 글쓰기 탭(2)을 누르면 바로 유지
-          if (index != 2 && (_titleCtrl.text.isNotEmpty ||
-              _contentCtrl.text.isNotEmpty || _image != null)) {
-            // utils/discard_confirm.dart 의 함수
-            return await showDiscardDialog(context);
-          }
-          return true;
-        },
-      ),
     );
   }
+}
+
+Widget _buildRadio(String label, String groupValue, ValueChanged<String?> onChanged) {
+  return Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Radio<String>(
+        value: label,
+        groupValue: groupValue,
+        onChanged: onChanged,
+        activeColor: Colors.black87,
+      ),
+      Text(
+        label,
+        style: const TextStyle(
+          fontFamily: '온글잎 혜련',
+          fontSize: 16,
+          color: Colors.black87,
+        ),
+      ),
+    ],
+  );
 }

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:dx_project_dev2/models/user_model.dart';
 import 'package:dx_project_dev2/utils/date_formatter.dart';
-import 'package:dx_project_dev2/widgets/bottom_nav.dart';
 
 /// 내 정보 페이지
 /// [user] 객체를 전달받아 화면에 보여줍니다.
@@ -49,7 +48,6 @@ class ProfilePage extends StatelessWidget {
           ],
         ),
       ),
-      bottomNavigationBar: const BottomNav(currentIndex: 4),
     );
   }
 

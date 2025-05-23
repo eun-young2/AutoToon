@@ -85,7 +85,6 @@ class LikesPage extends StatelessWidget {
           );
         },
       ),
-      bottomNavigationBar: const BottomNav(currentIndex: 3),
     );
   }
 }

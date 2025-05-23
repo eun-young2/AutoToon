@@ -1,89 +1,88 @@
+// 바텀 내비게이션
 import 'package:flutter/material.dart';
 import 'package:line_awesome_flutter/line_awesome_flutter.dart';
 
-/// 앱 전역 바텀 네비게이션 위젯
-/// currentIndex: 현재 활성화된 탭 인덱스 (0~3)
-/// onWillNavigate: 탭 이동 전 호출, false 반환 시 이동 취소
 class BottomNav extends StatelessWidget {
-  final int currentIndex;
-  final Future<bool> Function(BuildContext context, int index)? onWillNavigate;
+  const BottomNav({Key? key}) : super(key: key);
 
-  const BottomNav({
-    Key? key,
-    required this.currentIndex,
-    this.onWillNavigate,
-  }) : super(key: key);
-
-  void _onTap(BuildContext context, int i) {
-    switch (i) {
-      case 0:
-        Navigator.pushReplacementNamed(context, '/main');
-        break;
-      case 1:
-        Navigator.pushReplacementNamed(context, '/calendar');
-        break;
-      case 2:
-        Navigator.pushReplacementNamed(context, '/write');
-        break;
-      case 3:
-        Navigator.pushReplacementNamed(context, '/likes');
-        break;
-      case 4:
-        Navigator.pushReplacementNamed(context, '/profile');
-        break;
-    }
-  }
+  static const _icons = [
+    LineAwesomeIcons.home_solid,
+    LineAwesomeIcons.calendar,
+    LineAwesomeIcons.plus_square,
+    LineAwesomeIcons.heart,
+    LineAwesomeIcons.user,
+  ];
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 30), // 하단으로 더 내림
-      child: Container(
-        decoration: const BoxDecoration(
-          color: Color(0xFFE6C4C2),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black26,
-              blurRadius: 8,
-              offset: Offset(0, -1), // 상단에 그림자
-            ),
-          ],
-          borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-        ),
-        child: NavigationBar(
-          selectedIndex: currentIndex,
-          onDestinationSelected: (index) => _onTap(context, index),
-          backgroundColor: Colors.white,
-          indicatorColor: Colors.transparent,
-          destinations: const [
-            NavigationDestination(
-              icon: Icon(LineAwesomeIcons.home_solid, size: 30),
-              selectedIcon: Icon(LineAwesomeIcons.home_solid, size: 30),
-              label: '',
-            ),
-            NavigationDestination(
-              icon: Icon(LineAwesomeIcons.calendar_alt, size: 30),
-              selectedIcon: Icon(LineAwesomeIcons.calendar_alt, size: 30),
-              label: '',
-            ),
-            NavigationDestination(
-              icon: Icon(LineAwesomeIcons.plus_square, size: 30),
-              selectedIcon: Icon(LineAwesomeIcons.plus_square, size: 30),
-              label: '',
-            ),
-            NavigationDestination(
-              icon: Icon(LineAwesomeIcons.heart, size: 30),
-              selectedIcon: Icon(LineAwesomeIcons.heart, size: 30),
-              label: '',
-            ),
-            NavigationDestination(
-              icon: Icon(LineAwesomeIcons.user, size: 30),
-              selectedIcon: Icon(LineAwesomeIcons.user, size: 30),
-              label: '',
-            ),
-          ],
-        ),
-      ),
+    // 1) TabController 가져오기
+    final tabController = DefaultTabController.of(context)!;
+
+    // 2) AnimatedBuilder 로 탭 컨트롤러를 리스닝
+    return AnimatedBuilder(
+      animation: tabController,
+      builder: (context, _) {
+        final currentIndex = tabController.index;
+        final count = _icons.length;
+        // -1.0 부터 +1.0 까지 분할해서 alignment.x 를 계산
+        final raw   = (2 * currentIndex + 1) / count - 1;
+
+        const extra = 0.85; // 1.0보다 크면 양쪽으로 더 늘어남
+        final scale = (count / (count - 1)) * extra;
+        final alignX= raw * scale;
+
+        return Container(
+          height: 60,
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            boxShadow: [
+              BoxShadow(
+                  color: Colors.black26, blurRadius: 1, offset: Offset(0, -2)),
+            ],
+          ),
+          child: Stack(
+            alignment: Alignment.bottomCenter,
+            children: [
+              // 1) 아이콘 Row
+              Row(
+                children: List.generate(_icons.length, (idx) {
+                  final selected = idx == currentIndex;
+                  return Expanded(
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () => tabController.animateTo(idx),
+                      child: Padding(
+                        padding: const EdgeInsets.only(bottom: 20.0),
+                        // 8픽셀 만큼 아래쪽 여백
+                        child: Icon(
+                          _icons[idx],
+                          size: 28,
+                          color: selected ? Colors.black87 : Colors.grey,
+                        ),
+                      ),
+                    ),
+                  );
+                }),
+              ),
+
+              // 2) 선택된 탭 위의 슬라이딩 바
+              AnimatedAlign(
+                duration: const Duration(milliseconds: 250),
+                alignment: Alignment(alignX, -1.0),
+                child: Container(
+                  height: 2,
+                  width: 24,
+                  margin: const EdgeInsets.only(bottom: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.black87,
+                    borderRadius: BorderRadius.circular(1.5),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

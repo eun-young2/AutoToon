@@ -12,21 +12,30 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:kakao_flutter_sdk_user/kakao_flutter_sdk_user.dart'; // 카카오 로그인 SDK import
 import 'package:flutter_dotenv/flutter_dotenv.dart'; // .env 파일을 사용하기 위한 패키지
 import 'kakao_login_page.dart'; // 경로 확인
+import 'package:dx_project_dev2/screens/user_info_test_page.dart';
 
 void main() async {
   // Flutter 프레임워크의 비동기 초기화를 보장 (필수)
   WidgetsFlutterBinding.ensureInitialized();
+
   // .env 파일을 비동기로 로드 (여기서 환경변수들이 메모리에 올라감)
   await dotenv.load();
-  print(
-      '카카오 네이티브 앱키: ${dotenv.env['KAKAO_NATIVE_APP_KEY']}'); // 환경변수 정상 로드 확인(디버깅용)
-  // 카카오 SDK 초기화
-  // .env 파일에서 NATIVE_APP_KEY 값을 불러와서 사용
+
+  // ★★★★★★★★배포 시 반드시 삭제!!★★★★★★★★
+  // 환경변수 정상 로드 확인 (개발/디버깅용)
+  print('카카오 네이티브 앱키: ${dotenv.env['KAKAO_NATIVE_APP_KEY']}');
+  print('카카오 JS 앱키: ${dotenv.env['KAKAO_JAVASCRIPT_APP_KEY']}');
+  //////////////////////////////////////////////////////////////////////////////
+
+  // 카카오 SDK 초기화 (앱/웹 모두 지원)
+  // - 네이티브 앱 키: Android/iOS에서 사용
+  // - 자바스크립트 앱 키: 웹(Flutter Web)에서 사용
+  // - 두 키를 모두 전달하면 플랫폼에 맞게 자동 적용됨
   KakaoSdk.init(
-    // .env 파일에 있는 실제 키 불러오기
     nativeAppKey: dotenv.env['KAKAO_NATIVE_APP_KEY'],
     javaScriptAppKey: dotenv.env['KAKAO_JAVASCRIPT_APP_KEY'],
   );
+
   // 앱 실행 (DxApp은 전체 앱의 루트 위젯)
   runApp(const DxApp());
 }
@@ -46,7 +55,7 @@ class DxApp extends StatelessWidget {
           elevation: 0, // 그림자 제거
         ),
       ),
-      initialRoute: '/login',
+      initialRoute: '/login', // 앱 시작 시 보여줄 첫 화면
       routes: {
         '/login': (context) => const LoginPage(),
         '/signup': (context) => const SignupPage(),
@@ -56,6 +65,7 @@ class DxApp extends StatelessWidget {
         '/likes': (context) => const LikesPage(),
         '/profile': (context) => const ProfilePage(),
         '/detail': (context) => const DetailPage(),
+        '/userInfoTest': (context) => const UserInfoTestPage(),
       },
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,

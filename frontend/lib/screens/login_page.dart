@@ -9,7 +9,6 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
-  // 카카오 로그인 함수
   void kakaoLogin() async {
     bool installed = await isKakaoTalkInstalled();
 

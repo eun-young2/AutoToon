@@ -18,10 +18,14 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   // .env 파일을 비동기로 로드 (여기서 환경변수들이 메모리에 올라감)
   await dotenv.load();
+  print(
+      '카카오 네이티브 앱키: ${dotenv.env['KAKAO_NATIVE_APP_KEY']}'); // 환경변수 정상 로드 확인(디버깅용)
   // 카카오 SDK 초기화
   // .env 파일에서 NATIVE_APP_KEY 값을 불러와서 사용
   KakaoSdk.init(
-    nativeAppKey: dotenv.env['NATIVE_APP_KEY'], // .env 파일에 있는 실제 키 불러오기
+    // .env 파일에 있는 실제 키 불러오기
+    nativeAppKey: dotenv.env['KAKAO_NATIVE_APP_KEY'],
+    javaScriptAppKey: dotenv.env['KAKAO_JAVASCRIPT_APP_KEY'],
   );
   // 앱 실행 (DxApp은 전체 앱의 루트 위젯)
   runApp(const DxApp());

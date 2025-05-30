@@ -13,12 +13,18 @@
 
     # 캘린더 리이브러리
     table_calendar: any
+    # 캘린더 날짜 선택 라이브러리
+    flutter_datetime_picker_plus: ^2.2.0
+
     # 캘린더 한국어 번역할때
     flutter_localizations:
       sdk: flutter
     # 아이콘 라이브러리
     line_awesome_flutter: ^3.0.1
     cupertino_icons: ^1.0.2
+
+    # 이미지 색상 추출 라이브러리(캘린더 페이지의 패널 부분의 게이지 부분에서 쓰입니다.)
+    palette_generator: ^0.3.0
 
     intl: any
     image_picker: ^0.8.7+4
@@ -36,6 +42,8 @@
       - assets/images/
       - assets/textures/
       - assets/modals/
+      - assets/stamps/
+      - assets/items/
     fonts:
       - family: 온글잎 혜련
         fonts:

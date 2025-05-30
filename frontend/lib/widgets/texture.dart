@@ -16,7 +16,7 @@ class TexturedBackground extends StatelessWidget {
     this.opacity = 1,
     this.assetPath = 'assets/textures/extracted_background_3.png',
   }) : super(key: key);
-
+  /// ─────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     return Container(

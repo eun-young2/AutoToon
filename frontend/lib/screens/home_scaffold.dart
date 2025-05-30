@@ -1,11 +1,10 @@
 // 화면전환 비동기로 만들어 보기
+import 'package:dx_project_dev2/screens/member_info_page.dart';
 import 'package:flutter/material.dart';
-import '../widgets/bottom_nav.dart';
-import 'main_page.dart';
+import 'home_page.dart';
 import 'calendar_page.dart';
 import 'write_page.dart';
-import 'likes_page.dart';
-import 'profile_page.dart';
+import 'sentiment_page.dart';
 
 class HomeScaffold extends StatefulWidget {
   const HomeScaffold({Key? key}) : super(key: key);
@@ -13,17 +12,17 @@ class HomeScaffold extends StatefulWidget {
   @override
   _HomeScaffoldState createState() => _HomeScaffoldState();
 }
-
+/// ─────────────────────────────────────────────
 class _HomeScaffoldState extends State<HomeScaffold> {
-  int _currentIndex = 0;
+  final int _currentIndex = 0;
   final List<Widget> _pages = const [
     MainPage(),
     CalendarPage(),
     WritePage(),
-    LikesPage(),
-    ProfilePage(),
+    SentiMentPage(),
+    MemberInfoPage(),
   ];
-
+  /// ─────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -34,7 +33,7 @@ class _HomeScaffoldState extends State<HomeScaffold> {
         duration: const Duration(milliseconds: 200),
         transitionBuilder: (child, anim) {
           final beginOffset =
-          Offset(_pages.indexOf(child!) > _currentIndex ? 1 : -1, 0);
+          Offset(_pages.indexOf(child) > _currentIndex ? 1 : -1, 0);
           return SlideTransition(
             position: Tween<Offset>(begin: beginOffset, end: Offset.zero)
                 .animate(anim),
@@ -48,4 +47,5 @@ class _HomeScaffoldState extends State<HomeScaffold> {
       ),
     );
   }
+/// ─────────────────────────────────────────────
 }

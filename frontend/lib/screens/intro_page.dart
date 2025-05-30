@@ -28,7 +28,7 @@ class _IntroPageState extends State<IntroPage>
     _blinkController.dispose();
     super.dispose();
   }
-
+  /// ─────────────────────────────────────────────
   void _onTap() {
     setState(() => _tapped = true);
     Future.delayed(const Duration(milliseconds: 400), () {
@@ -43,7 +43,7 @@ class _IntroPageState extends State<IntroPage>
       );
     });
   }
-
+  /// ─────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -56,6 +56,7 @@ class _IntroPageState extends State<IntroPage>
           duration: const Duration(milliseconds: 400),
           child: Column(
             children: [
+              /// ─────────────────────────────────────────────
               // 1) Expanded로 로고를 화면 중앙에 배치
               Expanded(
                 child: Center(
@@ -72,7 +73,7 @@ class _IntroPageState extends State<IntroPage>
                       ),
                       const SizedBox(width: 8),
                       Image.asset(
-                        'assets/images/intro_logo.png',
+                        'assets/stamps/stamp_happy2.png',
                         width: 32,
                         height: 32,
                       ),
@@ -80,7 +81,7 @@ class _IntroPageState extends State<IntroPage>
                   ),
                 ),
               ),
-
+              /// ─────────────────────────────────────────────
               // 2) 맨 아래에 텍스트 배치
               FadeTransition(
                 opacity: _blinkController.drive(
@@ -97,6 +98,7 @@ class _IntroPageState extends State<IntroPage>
                   ),
                 ),
               ),
+              /// ─────────────────────────────────────────────
             ],
           ),
         ),

@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:dotted_border/dotted_border.dart';
 import 'package:line_awesome_flutter/line_awesome_flutter.dart';
 import 'write_page.dart';
-import 'package:dx_project_dev2/widgets/bottom_nav.dart';
 
 class MainPage extends StatefulWidget {
   const MainPage({Key? key}) : super(key: key);
@@ -19,11 +18,11 @@ class _MainPageState extends State<MainPage> {
   Widget build(BuildContext context) {
     final images = postImages; // WritePage에서 추가된 리스트
     final crossCount = _selectedCount ?? 3; // 기본 3개씩 보기
+    final tabController = DefaultTabController.of(context);
 
     return Scaffold(
+      /// ─────────────────────────────────────────────
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
         automaticallyImplyLeading: false,
         title: const Row(
           children: [
@@ -38,8 +37,10 @@ class _MainPageState extends State<MainPage> {
           ],
         ),
       ),
+      /// ─────────────────────────────────────────────
       body: Column(
         children: [
+          /// ─────────────────────────────────────────────
           // 정렬 드롭다운
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
@@ -62,6 +63,7 @@ class _MainPageState extends State<MainPage> {
               ],
             ),
           ),
+          /// ─────────────────────────────────────────────
           // 그리드 뷰 (글쓰기 버튼을 첫 번째 타일로 포함)
           Expanded(
             child: Padding(
@@ -75,22 +77,25 @@ class _MainPageState extends State<MainPage> {
                 ),
                 itemBuilder: (_, idx) {
                   if (idx == 0) {
+                    /// ─────────────────────────────────────────────
                     // 첫 번째: 글쓰기 버튼
                     return GestureDetector(
-                      onTap: () => Navigator.pushNamed(context, '/write'),
+                      onTap: () {
+                        tabController.animateTo(2);
+                        },
                       child: DottedBorder(
                         borderType: BorderType.RRect,
                         radius: const Radius.circular(20),
                         dashPattern: const [6, 3],
                         strokeWidth: 1,
-                        color: Colors.black,
                         child: const Center(
                           child: Icon(Icons.edit, color: Colors.black,size: 35),
                         ),
                       ),
                     );
                   }
-                  // images 리스트에서 XFile을 직접 꺼내 사용
+                  /// ─────────────────────────────────────────────
+                  // 두 번째 타일부터는 detail 페이지로
                   final imgIdx = idx - 1;  // XFile 타입
                   return GestureDetector(
                     onTap: () => Navigator.pushNamed(
@@ -106,6 +111,7 @@ class _MainPageState extends State<MainPage> {
                       ),
                     ),
                   );
+                  /// ─────────────────────────────────────────────
                 },
               ),
             ),

@@ -6,14 +6,13 @@ class LoginPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
       body: SafeArea(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             // 상단 스페이서
             const SizedBox(height: 40),
-
+            /// ─────────────────────────────────────────────
             // 중앙 로고 텍스트
             const Center(
               child: Text(
@@ -25,7 +24,7 @@ class LoginPage extends StatelessWidget {
                 ),
               ),
             ),
-
+            /// ─────────────────────────────────────────────
             // 하단 이미지 버튼
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
@@ -39,6 +38,7 @@ class LoginPage extends StatelessWidget {
                 ),
               ),
             ),
+            /// ─────────────────────────────────────────────
           ],
         ),
       ),

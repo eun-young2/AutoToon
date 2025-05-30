@@ -16,8 +16,9 @@ class BottomNav extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // 1) TabController 가져오기
-    final tabController = DefaultTabController.of(context)!;
+    final tabController = DefaultTabController.of(context);
 
+    /// ─────────────────────────────────────────────
     // 2) AnimatedBuilder 로 탭 컨트롤러를 리스닝
     return AnimatedBuilder(
       animation: tabController,
@@ -43,6 +44,7 @@ class BottomNav extends StatelessWidget {
           child: Stack(
             alignment: Alignment.bottomCenter,
             children: [
+              /// ─────────────────────────────────────────────
               // 1) 아이콘 Row
               Row(
                 children: List.generate(_icons.length, (idx) {
@@ -64,7 +66,7 @@ class BottomNav extends StatelessWidget {
                   );
                 }),
               ),
-
+              /// ─────────────────────────────────────────────
               // 2) 선택된 탭 위의 슬라이딩 바
               AnimatedAlign(
                 duration: const Duration(milliseconds: 250),
@@ -79,6 +81,7 @@ class BottomNav extends StatelessWidget {
                   ),
                 ),
               ),
+              /// ─────────────────────────────────────────────
             ],
           ),
         );

@@ -7,7 +7,7 @@ class SignupPage extends StatefulWidget {
   @override
   State<SignupPage> createState() => _SignupPageState();
 }
-
+/// ─────────────────────────────────────────────
 class _SignupPageState extends State<SignupPage> {
   final _idCtrl = TextEditingController();
   final _pwCtrl = TextEditingController();
@@ -16,7 +16,7 @@ class _SignupPageState extends State<SignupPage> {
   Country? _country;
   String? _ageGroup;
   final List<String> _ageGroups = ['10대', '20대', '30대', '40대', '50대', '60대'];
-
+  /// ─────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -40,7 +40,7 @@ class _SignupPageState extends State<SignupPage> {
                 const Text('여성'),
               ],
             ),
-
+            /// ─────────────────────────────────────────────
             // *** Modified: Age & Country selection in one row, each half width ***
             Row(
               children: [
@@ -61,7 +61,10 @@ class _SignupPageState extends State<SignupPage> {
                     onChanged: (val) => setState(() => _ageGroup = val),
                   ),
                 ),
+                /// ─────────────────────────────────────────────
                 const SizedBox(width: 8),
+
+                /// ─────────────────────────────────────────────
                 Expanded(
                   child: InputDecorator(
                     decoration: const InputDecoration(
@@ -90,11 +93,12 @@ class _SignupPageState extends State<SignupPage> {
                 ),
               ],
             ),
-
+            /// ─────────────────────────────────────────────
             ElevatedButton(
               onPressed: () => Navigator.pushReplacementNamed(context, '/main'),
               child: const Text('회원가입 완료'),
             ),
+            /// ─────────────────────────────────────────────
           ],
         ),
       ),

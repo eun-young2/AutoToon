@@ -1,22 +1,33 @@
-import 'package:dx_project_dev2/widgets/bottom_nav.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
-
+import 'package:dx_project_dev2/screens/member_info_page.dart';
 import 'package:dx_project_dev2/screens/calendar_page.dart';
 import 'package:dx_project_dev2/screens/detail_page.dart';
 import 'package:dx_project_dev2/screens/intro_page.dart';
-import 'package:dx_project_dev2/screens/likes_page.dart';
+import 'package:dx_project_dev2/screens/sentiment_page.dart';
 import 'package:dx_project_dev2/screens/login_page.dart';
-import 'package:dx_project_dev2/screens/main_page.dart';
-import 'package:dx_project_dev2/screens/profile_page.dart';
+import 'package:dx_project_dev2/screens/home_page.dart';
 import 'package:dx_project_dev2/screens/signup_page.dart';
 import 'package:dx_project_dev2/screens/write_page.dart';
-import 'package:dx_project_dev2/theme/app_theme.dart';
 
+import 'package:dx_project_dev2/theme/app_theme.dart';
+import 'package:dx_project_dev2/widgets/bottom_nav.dart';
 
 void main() {
-  runApp(const DxApp());
+  WidgetsFlutterBinding.ensureInitialized();
+
+  final themeNotifier = ThemeNotifier();
+  // 앱 시작 전에 미리 팔레트 계산
+  themeNotifier.initSentimentPalette();
+
+  runApp(
+    ChangeNotifierProvider<ThemeNotifier>.value(
+      value: themeNotifier,
+      child: const DxApp(),
+    ),
+  );
 }
 
 class DxApp extends StatelessWidget {
@@ -24,20 +35,20 @@ class DxApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Provider 로부터 현재 테마 모드 읽기
+    final themeNotifier = Provider.of<ThemeNotifier>(context);
+
     return MaterialApp(
+      debugShowCheckedModeBanner: false,
       title: 'DX Project App',
-      theme: ThemeData(
-        primaryColor: AppTheme.primary,
-        scaffoldBackgroundColor: AppTheme.background,
-        fontFamily: '온글잎 혜련',
-        appBarTheme: const AppBarTheme(
-          backgroundColor: AppTheme.background,    // AppBar 배경을 전체 배경과 동일하게
-          elevation: 0,                             // 그림자 제거
-        ),
-      ),
-      // builder: (context, child) {
-      //   return TexturedBackground(child: child!);
-      // },
+
+      // 라이트/다크 테마 설정
+      theme: AppTheme.lightTheme,
+      darkTheme: AppTheme.paperTheme,
+
+      // 실제로 사용할 모드 선택
+      themeMode: themeNotifier.isPaperMode ? ThemeMode.dark : ThemeMode.light,
+
       initialRoute: '/intro',
       routes: {
         '/login': (context) => const LoginPage(),
@@ -45,10 +56,10 @@ class DxApp extends StatelessWidget {
         '/main': (context) => const MainWithTabs(),
         '/calendar': (context) => const CalendarPage(),
         '/write': (context) => const WritePage(),
-        '/likes': (context) => const LikesPage(),
-        '/profile': (context) => const ProfilePage(),
+        '/likes': (context) => const SentiMentPage(),
         '/intro': (context) => const IntroPage(),
         '/detail': (context) => const DetailPage(),
+        '/member': (context) => const MemberInfoPage(),
       },
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
@@ -65,15 +76,14 @@ class DxApp extends StatelessWidget {
 
 /// ─────────────────────────────────────────────
 /// /main 루트에서 보여줄 탭 구조
-/// ─────────────────────────────────────────────
 class MainWithTabs extends StatelessWidget {
   const MainWithTabs({super.key});
 
   @override
   Widget build(BuildContext context) {
     return const DefaultTabController(
-      length: 5,              // 탭 개수 (홈, 일정, 게시, 좋아요, 프로필)
-      initialIndex: 0,        // 시작 탭
+      length: 5, // 탭 개수 (홈, 일정, 게시, 좋아요, 프로필)
+      initialIndex: 0, // 시작 탭
       child: Scaffold(
         // AppBar 나 Drawer 가 필요하면 여기 추가 가능
         body: TabBarView(
@@ -82,8 +92,8 @@ class MainWithTabs extends StatelessWidget {
             MainPage(),
             CalendarPage(),
             WritePage(),
-            LikesPage(),
-            ProfilePage(),
+            SentiMentPage(),
+            MemberInfoPage(),
           ],
         ),
         bottomNavigationBar: BottomNav(),
@@ -91,3 +101,5 @@ class MainWithTabs extends StatelessWidget {
     );
   }
 }
+
+/// ─────────────────────────────────────────────

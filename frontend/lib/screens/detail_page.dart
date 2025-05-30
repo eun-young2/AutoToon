@@ -1,95 +1,118 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:dx_project_dev2/screens/write_page.dart' show likedPosts, postContents, postDateTimes, postImages;
-import '../widgets/bottom_nav.dart'; // 필요시
-import 'package:dx_project_dev2/theme/app_theme.dart';
-
+import 'package:dx_project_dev2/screens/write_page.dart'
+    show postContents, postDateTimes, postImages;
+/// ─────────────────────────────────────────────
 class DetailPage extends StatefulWidget {
   const DetailPage({Key? key}) : super(key: key);
 
   @override
   State<DetailPage> createState() => _DetailPageState();
 }
-
+/// ─────────────────────────────────────────────
 class _DetailPageState extends State<DetailPage> {
-  final Set<int> _liked = {};
-
   bool isSameDay(DateTime a, DateTime b) =>
       a.year == b.year && a.month == b.month && a.day == b.day;
 
+  /// ─────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
-    final idx = ModalRoute.of(context)!.settings.arguments as int;
-    final dateTime = postDateTimes[idx];
-    final indexes = postDateTimes
-        .asMap()
-        .entries
-        .where((e) => isSameDay(e.value, dateTime))
-        .map((e) => e.key)
-        .toList();
+    final args = ModalRoute.of(context)!.settings.arguments;
+    List<int> indexes;
+
+    if (args is int) {
+      final idx = args;
+      final dateTime = postDateTimes[idx];
+      indexes = postDateTimes
+          .asMap()
+          .entries
+          .where((e) => isSameDay(e.value, dateTime))
+          .map((e) => e.key)
+          .toList();
+    } else if (args is List<int>) {
+      indexes = args;
+    } else {
+      indexes = [];
+    }
 
     return Scaffold(
-      backgroundColor: AppTheme.background,
+      /// ─────────────────────────────────────────────
       appBar: AppBar(
         title: const Text('Auto Toon'),
-        backgroundColor: AppTheme.background,
-        elevation: 0,
+        automaticallyImplyLeading: false,
         iconTheme: const IconThemeData(color: Colors.black),
       ),
-      body: ListView.builder(
-        itemCount: indexes.length,
-        itemBuilder: (context, i) {
-          final iIdx = indexes[i];
-          final img = postImages[iIdx];
-          final content = postContents[iIdx];
-          final dTime = postDateTimes[iIdx];
-          final liked = _liked.contains(iIdx);
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Image.file(
-                File(img.path),
-                width: double.infinity,
-                fit: BoxFit.fitWidth,
-              ),
-              const SizedBox(height: 8),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: IconButton(
-                  icon: Icon(
-                    likedPosts.contains(idx) ? Icons.favorite : Icons.favorite_border,
-                    color: likedPosts.contains(idx) ? Colors.red : Colors.grey,
+      /// ─────────────────────────────────────────────
+      body: indexes.isEmpty
+          ? const Center(child: Text('선택된 게시물이 없습니다.'))
+          : SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        child: Column(
+          children: indexes.map((iIdx) {
+            final img = postImages[iIdx];
+            final content = postContents[iIdx];
+            final dTime = postDateTimes[iIdx];
+
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 32),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  /// ─────────────────────────────────────────────
+                  // 날짜
+                  Center(
+                    child: Text(
+                      DateFormat('yyyy.MM.dd').format(dTime),
+                      style: const TextStyle(
+                        fontFamily: '온글잎 혜련',
+                        fontSize: 20,
+                      ),
+                    ),
                   ),
-                  onPressed: () => setState(() {
-                    if (likedPosts.contains(idx)) {
-                      likedPosts.remove(idx);
-                    } else {
-                      likedPosts.add(idx);
-                    }
-                  }),
-                ),
+                  const SizedBox(height: 16),
+
+                  /// ─────────────────────────────────────────────
+                  // 이미지
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Image.file(
+                      File(img.path),
+                      width: double.infinity,
+                      fit: BoxFit.fitWidth,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // (주석 해제 후 사용하세요)
+                  // Center(
+                  //   child: IconButton(
+                  //     icon: Icon(
+                  //       liked ? Icons.favorite : Icons.favorite_border,
+                  //       color: liked ? Colors.red : Colors.grey,
+                  //     ),
+                  //     onPressed: () => setState(() {
+                  //       if (liked) likedPosts.remove(iIdx);
+                  //       else likedPosts.add(iIdx);
+                  //     }),
+                  //   ),
+                  // ),
+
+                  /// ─────────────────────────────────────────────
+                  // 내용
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Text(
+                      content,
+                      style: const TextStyle(fontSize: 16, height: 1.5),
+                    ),
+                  ),
+                  /// ─────────────────────────────────────────────
+                ],
               ),
-              const SizedBox(height: 4),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Text(
-                  content,
-                  style: const TextStyle(fontSize : 16, height: 1.5),
-                ),
-              ),
-              const SizedBox(height: 4),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Text(
-                  DateFormat('yyyy년 MM월 dd일 H시').format(dTime),
-                  style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
-                ),
-              ),
-              const SizedBox(height: 24),
-            ],
-          );
-        },
+            );
+          }).toList(),
+        ),
       ),
     );
   }

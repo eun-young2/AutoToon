@@ -1,7 +1,6 @@
-// lib/utils/create_confirm.dart
-
 import 'package:flutter/material.dart';
 
+/// ─────────────────────────────────────────────
 /// 오토툰 생성 전 사용자에게 한 번 더 묻는 확인 다이얼로그
 Future<bool> showCreateConfirmDialog(BuildContext context) {
   return showDialog<bool>(
@@ -23,3 +22,4 @@ Future<bool> showCreateConfirmDialog(BuildContext context) {
     ),
   ).then((value) => value ?? false);
 }
+/// ─────────────────────────────────────────────

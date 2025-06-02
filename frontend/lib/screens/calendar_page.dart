@@ -64,7 +64,7 @@ class _CalendarPageState extends State<CalendarPage> {
         Navigator.pushNamed(
           context,
           '/detail',
-          arguments: posts, // List<int> 형태로 넘겨서, detail_page 에서 처리
+          arguments: posts.first,   // ← List → int 로 변경
         );
       }
     }

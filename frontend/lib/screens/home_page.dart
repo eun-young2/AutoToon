@@ -1,8 +1,15 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:dotted_border/dotted_border.dart';
+import 'package:intl/intl.dart';
 import 'package:line_awesome_flutter/line_awesome_flutter.dart';
-import 'write_page.dart';
+import '../utils/attendance_helper.dart';
+import 'write_page.dart' // postImages / postDateTimes
+    show
+        postImages,
+        postDateTimes;
+
+// 최신순, 오래된순
+enum SortOption { latest, oldest }
 
 class MainPage extends StatefulWidget {
   const MainPage({Key? key}) : super(key: key);
@@ -12,112 +19,125 @@ class MainPage extends StatefulWidget {
 }
 
 class _MainPageState extends State<MainPage> {
-  int? _selectedCount;  // 선택된 개수
+  SortOption _sort = SortOption.latest;
 
+  /// 정렬된 인덱스 리스트를 만들어 두면 detail 로 넘길 때 편하다
+  List<int> get _sortedIndexes {
+    final idx = List<int>.generate(postImages.length, (i) => i);
+    idx.sort((a, b) {
+      final cmp = postDateTimes[a].compareTo(postDateTimes[b]);
+      return _sort == SortOption.latest ? -cmp : cmp; // 최신순==내림차순
+    });
+    return idx;
+  }
+
+  /// ──────────────────────────────────────────────────────────
+  @override
+  void initState() {
+    super.initState();
+    // 첫 번째 프레임이 그려진 뒤 출석 체크 로직을 한 번 실행
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      AttendanceHelper.checkAttendance(context);
+    });
+  }
+  /// ──────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
-    final images = postImages; // WritePage에서 추가된 리스트
-    final crossCount = _selectedCount ?? 3; // 기본 3개씩 보기
-    final tabController = DefaultTabController.of(context);
+    final indexes = _sortedIndexes;
 
     return Scaffold(
-      /// ─────────────────────────────────────────────
+      /// ───────────────── AppBar ──────────────────────
       appBar: AppBar(
-        automaticallyImplyLeading: false,
-        title: const Row(
-          children: [
-            Text(
-              'AutoToon',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: Colors.black,
-              ),
-            ),
-          ],
-        ),
-      ),
-      /// ─────────────────────────────────────────────
-      body: Column(
-        children: [
-          /// ─────────────────────────────────────────────
-          // 정렬 드롭다운
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
-            child: Row(
-              children: [
-                const Icon(LineAwesomeIcons.th_large_solid, size: 20, color: Colors.black),
-                const SizedBox(width: 3),
-                DropdownButton<int>(
-                  value: _selectedCount,
-                  hint: const Text('정렬'),
-                  icon: const Icon(Icons.arrow_drop_down, color: Colors.black),
-                  items: [2, 3, 4, 5].map((e) => DropdownMenuItem(
-                    value: e,
-                    child: Text('$e개씩 보기'),
-                  )).toList(),
-                  onChanged: (val) {
-                    if (val != null) setState(() => _selectedCount = val);
-                  },
-                ),
-              ],
-            ),
+        title: const Text(
+          'AutoToon',
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: Colors.black,
           ),
-          /// ─────────────────────────────────────────────
-          // 그리드 뷰 (글쓰기 버튼을 첫 번째 타일로 포함)
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.all(8),
-              child: GridView.builder(
-                itemCount: images.length + 1, // +1 for write button
-                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: crossCount,
-                  crossAxisSpacing: 8,
-                  mainAxisSpacing: 8,
-                ),
-                itemBuilder: (_, idx) {
-                  if (idx == 0) {
-                    /// ─────────────────────────────────────────────
-                    // 첫 번째: 글쓰기 버튼
-                    return GestureDetector(
-                      onTap: () {
-                        tabController.animateTo(2);
-                        },
-                      child: DottedBorder(
-                        borderType: BorderType.RRect,
-                        radius: const Radius.circular(20),
-                        dashPattern: const [6, 3],
-                        strokeWidth: 1,
-                        child: const Center(
-                          child: Icon(Icons.edit, color: Colors.black,size: 35),
-                        ),
-                      ),
-                    );
-                  }
-                  /// ─────────────────────────────────────────────
-                  // 두 번째 타일부터는 detail 페이지로
-                  final imgIdx = idx - 1;  // XFile 타입
-                  return GestureDetector(
-                    onTap: () => Navigator.pushNamed(
-                      context,
-                      '/detail',
-                      arguments: imgIdx,            // ▶ 인덱스 전달
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(20), // 원하는 반경
-                      child: Image.file(
-                        File(postImages[imgIdx].path),
-                        fit: BoxFit.cover,
-                      ),
-                    ),
-                  );
-                  /// ─────────────────────────────────────────────
+        ),
+        actions: [
+          // 정렬 드롭다운
+          Row(
+            children: [
+              /// ─────────────── 정렬 토글 버튼 ───────────────
+              InkWell(
+                borderRadius: BorderRadius.circular(4), // 살짝 터치 피드백
+                onTap: () {
+                  setState(() {
+                    // 최신순 ↔ 오래된순 토글
+                    _sort = _sort == SortOption.latest
+                        ? SortOption.oldest
+                        : SortOption.latest;
+                  });
                 },
+                child: Row(
+                  children: [
+                    Icon(
+                      _sort == SortOption.latest
+                          ? LineAwesomeIcons.sort_amount_down_solid // 최신순 ↓
+                          : LineAwesomeIcons.sort_amount_up_solid, // 오래된순 ↑
+                      size: 18,
+                      color: Colors.black,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      _sort == SortOption.latest ? '최신순' : '오래된순',
+                      style: const TextStyle(fontSize: 14, color: Colors.black),
+                    ),
+                  ],
+                ),
               ),
-            ),
+              const SizedBox(width: 10),
+            ],
           ),
         ],
       ),
+
+      /// ───────────────── Body ──────────────────────
+      body: postImages.isEmpty
+          ? const Center(child: Text('작성한 일기가 없습니다'))
+          : ListView.separated(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              itemCount: indexes.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 24),
+              itemBuilder: (_, listIdx) {
+                final realIdx = indexes[listIdx];
+                final date = postDateTimes[realIdx];
+                final img = postImages[realIdx];
+
+                return GestureDetector(
+                  onTap: () => Navigator.pushNamed(
+                    context,
+                    '/detail',
+                    arguments: realIdx, // detail_page 는 단일 index 처리
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // 날짜 헤더
+                      Text(
+                        DateFormat('yyyy.MM.dd').format(date),
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      // 썸네일 (가로꽉차게 1칸)
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(16),
+                        child: Image.file(
+                          File(img.path),
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
     );
   }
 }

@@ -3,9 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:dx_project_dev2/widgets/modal.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../theme/app_theme.dart';
 import '../widgets/alert_dialogs.dart';
+import '../widgets/member_info_components.dart';
 
 class MemberInfoPage extends StatefulWidget {
   const MemberInfoPage({super.key});
@@ -14,7 +16,7 @@ class MemberInfoPage extends StatefulWidget {
   State<MemberInfoPage> createState() => _MemberInfoPageState();
 }
 
-/// ─────────────────────────────────────────────
+/// ───────────────── INFO 하드코딩 ───────────────────────
 class _MemberInfoPageState extends State<MemberInfoPage> {
   // 변하지 않는 회원 정보 (카카오톡에서 받아온 정보라고 가정)
   final ImagePicker _picker = ImagePicker();
@@ -24,7 +26,45 @@ class _MemberInfoPageState extends State<MemberInfoPage> {
   final String _phoneNumber = '010-1234-5678';
   final String _gender = '남성';
   final String _ageGroup = '30대';
-  final int _credit = 100;
+
+  // 보유 크레딧(차감 가능)
+  int _credit = 0;
+
+  // 보유 아이템 개수
+  int _correctionTapeCount = 0;
+  int _diaryCount = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    // 화면이 처음 열릴 때 SharedPreferences에서 userCredit을 불러와 _credit에 세팅
+    _loadCreditFromPrefs();
+  }
+  @override
+  void didChangeDependencies() {
+      super.didChangeDependencies();
+      // 다른 화면에서 돌아올 때마다 SharedPreferences에서 userCredit을 다시 읽어 와서 setState
+      _loadCreditFromPrefs();
+    }
+
+  /// ──────────────── 크레딧 사용시 저장 ──────────────────────
+  /// SharedPreferences에서 userCredit, correctionTapeCount, diaryCount를 모두 불러와서
+  /// _credit, _correctionTapeCount, _diaryCount에 세팅
+  Future<void> _loadCreditFromPrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    // 크레딧 로드
+    final savedCredit = prefs.getInt('userCredit') ?? 0;
+    // 아이템 개수 로드
+    final savedTapeCount = prefs.getInt('correctionTapeCount') ?? 0;
+    final savedDiaryCount = prefs.getInt('diaryCount') ?? 0;
+
+    setState(() {
+      _credit = savedCredit;
+      _correctionTapeCount = savedTapeCount;
+      _diaryCount = savedDiaryCount;
+    });
+  }
 
   /// ─────────────────────────────────────────────
   // 프로필 사진 등록
@@ -64,134 +104,35 @@ class _MemberInfoPageState extends State<MemberInfoPage> {
   }
 
   /// ─────────────────────────────────────────────
-  // 설정 창
-  void _showThemeDialog(BuildContext context, ThemeNotifier themeNotifier) {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) {
-        return Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                leading: const Icon(Icons.brightness_6),
-                title: const Text('페이퍼 모드 전환'),
-                trailing: Switch(
-                  value: themeNotifier.isPaperMode,
-                  onChanged: (val) => themeNotifier.togglePaperMode(),
-                ),
-              ),
-              ListTile(
-                leading: const Icon(Icons.notifications),
-                title: const Text('알람설정'),
-                trailing: Switch(
-                  value: themeNotifier.isPaperMode,
-                  onChanged: (val) => themeNotifier.togglePaperMode(),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-  /// ─────────────────────────────────────────────
-  /// 아이템(메모지, 다이어리) 아이콘을 눌렀을 때
-  void _showItemDialog({
-    required String imagePath,
-    required String title,
-    required String description,
-    required int price,
-  }) {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        insetPadding:
-        const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
-        backgroundColor: const Color(0xFFF5F5F5),
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // 아이템 대표 이미지
-              Center(child: Image.asset(imagePath, width: 80)),
-              const SizedBox(height: 20),
-
-              Text(title,
-                  style: const TextStyle(
-                      fontSize: 18, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 8),
-              Text(description, textAlign: TextAlign.center),
-              const SizedBox(height: 20),
-
-              // 크레딧 아이콘 + 가격
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Image.asset('assets/images/credit.png',
-                      width: 24, height: 24),
-                  const SizedBox(width: 6),
-                  Text('$price',
-                      style: const TextStyle(
-                          fontSize: 20, fontStyle: FontStyle.italic)),
-                ],
-              ),
-              const SizedBox(height: 24),
-
-              // 버튼
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text('취소'),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFD6C7A6),
-                      ),
-                      onPressed: () {
-                        // TODO: 구매 처리
-                        Navigator.pop(context);
-                      },
-                      child: const Text('구매'),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  /// ─────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     final themeNotifier = Provider.of<ThemeNotifier>(context);
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: false,
+        leadingWidth: 120,
+        // 아이콘 두 개 공간 확보
+        leading: Row(
+          children: [
+            // 보유 아이템 개수
+            const SizedBox(width: 12), // 좌측 여백
+            ItemCountIcon(
+                imagePath: 'assets/items/correction tape.png',
+                count: _correctionTapeCount),
+            const SizedBox(width: 8),
+            ItemCountIcon(
+                imagePath: 'assets/items/diary.png', count: _diaryCount),
+          ],
+        ),
         title: const Text('내정보'),
         centerTitle: true,
         actions: [
+          // 설정 버튼
           IconButton(
             icon: const Icon(Icons.settings),
-            onPressed: () {
-              _showThemeDialog(context, themeNotifier);
-              // TODO: 설정 페이지 연결
-            },
+            onPressed: () =>
+                AlertDialogs.showThemeSheet(context, themeNotifier),
+            // TODO: 설정 페이지 연결
           ),
         ],
       ),
@@ -202,57 +143,24 @@ class _MemberInfoPageState extends State<MemberInfoPage> {
           children: [
             /// ─────────────────────────────────────────────
             // 프로필 사진, 닉네임, 알림창
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                GestureDetector(
-                  onTap: _pickImage,
-                  child: CircleAvatar(
-                    radius: 40,
-                    backgroundImage: _imageFile != null
-                        ? FileImage(File(_imageFile!.path)) as ImageProvider
-                        : const AssetImage('assets/images/GodFaker.jpg'),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Row(
-                        children: [
-                          Text(
-                            '$_nickname님 환영합니다',
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.edit, size: 20),
-                            onPressed: _editNickname,
-                          ),
-                        ],
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.info_outline, size: 28),
-                        onPressed: _showDetailDialog,
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+            /// 프로필 헤더
+            ProfileHeader(
+              imageFile: _imageFile != null ? File(_imageFile!.path) : null,
+              nickname: _nickname,
+              onImageTap: _pickImage,
+              onEditNickname: _editNickname,
+              onDetailTap: _showDetailDialog,
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 12),
 
             /// ─────────────────────────────────────────────
-            // 크레딧, 성별, 나이대 정보
+            /// 크레딧·성별·나이대
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _buildCreditBox(_credit),
-                _buildInfoBox('성별', _gender),
-                _buildInfoBox('나이대', _ageGroup),
+                CreditBox(credit: _credit),
+                const InfoBox(title: '성별', value: '남성'),
+                const InfoBox(title: '나이대', value: '30대'),
               ],
             ),
             const Divider(height: 32),
@@ -265,25 +173,26 @@ class _MemberInfoPageState extends State<MemberInfoPage> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                // 메모지
-                _buildItem(
-                  'assets/items/memoji.png', '메모지', 35,
-                  onTap: () => _showItemDialog(
-                    imagePath: 'assets/items/memoji.png',
-                    title: '메모지',
-                    description: '어딘가에 메모를 남길 수 있을지도 몰라요!',
-                    price: 35,
+                ItemCard(
+                  imagePath: 'assets/items/correction tape.png',
+                  label: '수정테이프',
+                  price: 100,
+                  onTap: () => _buyItem(
+                    imagePath: 'assets/items/correction tape.png',
+                    title: '수정테이프',
+                    description: '일기를 수정할 수 있어요!',
+                    price: 100,
                   ),
                 ),
-
-                // 일기
-                _buildItem(
-                  'assets/items/diary.png', '일기', 45,
-                  onTap: () => _showItemDialog(
+                ItemCard(
+                  imagePath: 'assets/items/diary.png',
+                  label: '일기장',
+                  price: 100,
+                  onTap: () => _buyItem(
                     imagePath: 'assets/items/diary.png',
                     title: '일기장',
-                    description: '깜빡하고 작성하지 못한날의 일기를 작성할 수 있어요!',
-                    price: 45,
+                    description: '일기를 하나 더 작성할 수 있어요!',
+                    price: 100,
                   ),
                 ),
               ],
@@ -291,9 +200,9 @@ class _MemberInfoPageState extends State<MemberInfoPage> {
             const SizedBox(height: 24),
 
             /// ─────────────────────────────────────────────
-            // 캐릭터 테마 선택
-            // ───────────── 캐릭터 오브제 ─────────────
-            const Text('감정 오브제',
+            // 감정 테마 선택
+            // ───────────── 감정 오브제 ─────────────
+            const Text('감정 오브제 (PRO👑)',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 12),
             Expanded(
@@ -308,19 +217,31 @@ class _MemberInfoPageState extends State<MemberInfoPage> {
                       crossAxisSpacing: 12,
                       mainAxisSpacing: 12,
                       childAspectRatio: 0.8,
-                      children: [
-                        _buildCharacter(
-                            'assets/stamps/stamp_ver1.png', '감정이들1', '5 / 5'),
-                        _buildCharacter(
-                            'assets/stamps/stamp_ver2.png', '감정이들2', '2 / 5'),
-                        _buildCharacter(
-                            'assets/stamps/stamp_ver3.jpg', '감정이들3', '3 / 5'),
-                        _buildCharacter(
-                            'assets/stamps/stamp_ver4.png', '감정이들4', '0 / 5'),
-                        _buildCharacter(
-                            'assets/interior5.png', '감정이들5', '0 / 5'),
-                        _buildCharacter(
-                            'assets/interior6.png', '감정이들6', '0 / 5'),
+                      children: const [
+                        CharacterCard(
+                            imagePath: 'assets/stamps/stamp_ver1.png',
+                            label: '감정이들1',
+                            count: '5 / 5'),
+                        CharacterCard(
+                            imagePath: 'assets/stamps/stamp_ver2.png',
+                            label: '감정이들2',
+                            count: '2 / 5'),
+                        CharacterCard(
+                            imagePath: 'assets/stamps/stamp_ver3.jpg',
+                            label: '감정이들3',
+                            count: '3 / 5'),
+                        CharacterCard(
+                            imagePath: 'assets/stamps/stamp_ver4.png',
+                            label: '감정이들4',
+                            count: '0 / 5'),
+                        CharacterCard(
+                            imagePath: 'assets/stamps/stamp_ver5.jpg',
+                            label: '감정이들5',
+                            count: '0 / 5'),
+                        CharacterCard(
+                            imagePath: 'assets/stamps/stamp_ver6.jpg',
+                            label: '감정이들6',
+                            count: '0 / 5'),
                       ],
                     ),
                     const SizedBox(height: 24),
@@ -348,92 +269,46 @@ class _MemberInfoPageState extends State<MemberInfoPage> {
   }
 
   /// ────────────────────────────────────────────
-  // 크레딧 전용 빌더 함수
-  Widget _buildCreditBox(int credit) {
-    return Column(
-      children: [
-        const Text('크레딧', style: TextStyle(fontSize: 16)),
-        const SizedBox(height: 8),
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Image.asset(
-              'assets/images/credit.png',
-              width: 20,
-              height: 20,
-            ),
-            const SizedBox(width: 4),
-            Text(
-              '$credit',
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
+  /// 아이템 구매 공통 로직
+  void _buyItem({
+    required String imagePath,
+    required String title,
+    required String description,
+    required int price,
+  }) async{
+    AlertDialogs.showItemDialog(
+      context: context,
+      imagePath: imagePath,
+      title: title,
+      description: description,
+      price: price,
+      onBuy: () async {
+        if (_credit >= price) {
+          // 1) 크레딧 차감, 아이템 개수 증가
+          setState(() {
+            _credit -= price;
+            if (title == '수정테이프') _correctionTapeCount++;
+            if (title == '일기장') _diaryCount++;
+          });
 
-  Widget _buildInfoBox(String title, String value) {
-    return Column(
-      children: [
-        Text(title, style: const TextStyle(fontSize: 16)),
-        const SizedBox(height: 8),
-        Text(value,
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-      ],
-    );
-  }
-  Widget _buildCharacter(String imagePath, String label, String count) {
-    return Column(
-      children: [
-        Expanded(
-          child: Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              color: Colors.white,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.grey.withOpacity(0.2),
-                  blurRadius: 4,
-                  offset: const Offset(2, 2),
-                ),
-              ],
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: Image.asset(imagePath, fit: BoxFit.cover),
-            ),
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(label, style: const TextStyle(fontSize: 14)),
-        const SizedBox(height: 2),
-        Text(count, style: const TextStyle(fontSize: 12, color: Colors.grey)),
-      ],
-    );
-  }
-}
+          // 2) SharedPreferences에 변경된 값 저장
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setInt('userCredit', _credit);
+          await prefs.setInt('correctionTapeCount', _correctionTapeCount);
+          await prefs.setInt('diaryCount', _diaryCount);
 
-Widget _buildItem(String imagePath, String label, int count,
-    {VoidCallback? onTap}) {
-  return GestureDetector(
-    onTap: onTap,
-    child: Column(
-      children: [
-        Image.asset(imagePath, width: 48, height: 48),
-        const SizedBox(height: 4),
-        Text(label),
-        const SizedBox(height: 4),
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Image.asset('assets/images/credit.png', width: 16, height: 16),
-            const SizedBox(width: 4),
-            Text('$count',
-                style: const TextStyle(fontWeight: FontWeight.bold)),
-          ],
-        ),
-      ],
-    ),
-  );
+          // 3) 다이얼로그 닫고, 완료 메시지
+          Navigator.pop(context);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('$title 구매 완료!')),
+          );
+        } else {
+          Navigator.pop(context);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('크레딧이 부족합니다.')),
+          );
+        }
+      },
+    );
+  }
 }

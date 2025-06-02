@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'write_page.dart'
+import '../screens/write_page.dart'
     show likedPosts, postContents, postDateTimes, postImages, postTitles; // likedPosts: global Set<int>
 
 /// 좋아요 누른 게시글 모아보기 페이지

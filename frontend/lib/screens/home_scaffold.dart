@@ -1,10 +1,10 @@
 // 화면전환 비동기로 만들어 보기
+import 'package:dx_project_dev2/screens/history_page.dart';
 import 'package:dx_project_dev2/screens/member_info_page.dart';
 import 'package:flutter/material.dart';
 import 'home_page.dart';
 import 'calendar_page.dart';
 import 'write_page.dart';
-import 'sentiment_page.dart';
 
 class HomeScaffold extends StatefulWidget {
   const HomeScaffold({Key? key}) : super(key: key);
@@ -19,7 +19,7 @@ class _HomeScaffoldState extends State<HomeScaffold> {
     MainPage(),
     CalendarPage(),
     WritePage(),
-    SentiMentPage(),
+    HistoryPage(),
     MemberInfoPage(),
   ];
   /// ─────────────────────────────────────────────
@@ -27,7 +27,7 @@ class _HomeScaffoldState extends State<HomeScaffold> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(['홈', '달력', '작성', '좋아요', '프로필'][_currentIndex]),
+        title: Text(['홈', '달력', '작성', '히스토리', '프로필'][_currentIndex]),
       ),
       body: AnimatedSwitcher(
         duration: const Duration(milliseconds: 200),

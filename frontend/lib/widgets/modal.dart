@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-/// 모달 두개 들어있습니다.
-/// ─────────────────────────────────────────────
+/// ─────────────── write_page ───────────────────────
 /// 로딩 중에 랜덤 문구를 보여주는 모달 다이얼로그
 class LoadingModal extends StatelessWidget {
   final String prompt;
@@ -50,7 +49,7 @@ class LoadingModal extends StatelessWidget {
   }
 }
 
-/// ─────────────────────────────────────────────
+/// ─────────────── member_info_page ───────────────────────
 /// 닉네임 수정용 모달 다이얼로그
 class NicknameModal extends StatefulWidget {
   final String initial;
@@ -136,6 +135,133 @@ class _NicknameModalState extends State<NicknameModal> {
                 elevation: 0,
               ),
               child: const Text('작성 완료'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// ─────────────── home_page.dart ───────────────────────
+// ─────────────── 출석 체크 모달 다이얼로그 ───────────────────────
+/// home_page에 접속했을 때 자동으로 한 번 띄워주는 “출석 체크” 알림창
+class AttendanceModal extends StatelessWidget {
+  final int totalDays; // 지금까지 출석한 누적 일수
+  final int reward;    // 이번 출석으로 받은 크레딧 양
+
+  const AttendanceModal({
+    Key? key,
+    required this.totalDays,
+    required this.reward,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+      backgroundColor: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // ① 타이틀: “xxx일차 방문 성공!”
+            Text(
+              '$totalDays일차\n방문 성공!',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Colors.black87,
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // ② 보상 안내 텍스트: 오늘 받은 크레딧
+            Text(
+              '오늘 출석으로 $reward 크레딧을 받으셨습니다.',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 16,
+                color: Colors.black54,
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            // ③ 확인 버튼
+            ElevatedButton(
+              onPressed: () => Navigator.of(context).pop(),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFD6C7A6),
+                foregroundColor: Colors.black,
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 24, vertical: 12),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
+                elevation: 0,
+              ),
+              child: const Text('확인했어요'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+// ─────────────── welcome_modal ───────────────────────
+/// 첫 로그인 시 한 번만 보여줄 환영 모달 다이얼로그
+class WelcomeModal extends StatelessWidget {
+  const WelcomeModal({Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.white,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // 타이틀: 환영 인사
+            const Text(
+              '환영합니다!',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Colors.black87,
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // 메시지: 크레딧 안내
+            const Text(
+              '300 크레딧이 적립되었습니다!',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.black54,
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            // 확인 버튼
+            ElevatedButton(
+              onPressed: () => Navigator.of(context).pop(),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFD6C7A6),
+                foregroundColor: Colors.black,
+                padding:
+                const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
+                elevation: 0,
+              ),
+              child: const Text('확인했어요'),
             ),
           ],
         ),

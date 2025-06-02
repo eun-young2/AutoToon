@@ -30,6 +30,7 @@
     image_picker: ^0.8.7+4
     dotted_border: ^2.0.0
     country_picker: ^2.0.27
+    shared_preferences: ^2.5.3
 
   dev_dependencies:
     flutter_test:

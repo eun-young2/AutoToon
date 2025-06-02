@@ -1,3 +1,4 @@
+import 'package:dx_project_dev2/screens/history_page.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -6,7 +7,6 @@ import 'package:dx_project_dev2/screens/member_info_page.dart';
 import 'package:dx_project_dev2/screens/calendar_page.dart';
 import 'package:dx_project_dev2/screens/detail_page.dart';
 import 'package:dx_project_dev2/screens/intro_page.dart';
-import 'package:dx_project_dev2/screens/sentiment_page.dart';
 import 'package:dx_project_dev2/screens/login_page.dart';
 import 'package:dx_project_dev2/screens/home_page.dart';
 import 'package:dx_project_dev2/screens/signup_page.dart';
@@ -56,7 +56,7 @@ class DxApp extends StatelessWidget {
         '/main': (context) => const MainWithTabs(),
         '/calendar': (context) => const CalendarPage(),
         '/write': (context) => const WritePage(),
-        '/likes': (context) => const SentiMentPage(),
+        '/history': (_) => const HistoryPage(),
         '/intro': (context) => const IntroPage(),
         '/detail': (context) => const DetailPage(),
         '/member': (context) => const MemberInfoPage(),
@@ -92,7 +92,7 @@ class MainWithTabs extends StatelessWidget {
             MainPage(),
             CalendarPage(),
             WritePage(),
-            SentiMentPage(),
+            HistoryPage(),
             MemberInfoPage(),
           ],
         ),

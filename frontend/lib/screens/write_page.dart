@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:csv/csv.dart';
-import 'package:dx_project_dev2/utils/create_confirm.dart';
+import 'package:dx_project_dev2/widgets/alert_dialogs.dart';
 import 'package:dx_project_dev2/widgets/modal.dart';
 import 'package:intl/intl.dart';
 
@@ -353,14 +353,18 @@ class _WritePageState extends State<WritePage> {
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
+                _buildRadio('애니', _selectedStyle, (v) {
+                  setState(() => _selectedStyle = v!);
+                }),
+                const SizedBox(width: 10),
+                _buildRadio('일러스트', _selectedStyle, (v) {
+                  setState(() => _selectedStyle = v!);
+                }),
+                const SizedBox(width: 10),
                 _buildRadio('수채화', _selectedStyle, (v) {
                   setState(() => _selectedStyle = v!);
                 }),
-                const SizedBox(width: 24),
-                _buildRadio('동화', _selectedStyle, (v) {
-                  setState(() => _selectedStyle = v!);
-                }),
-                const SizedBox(width: 24),
+                const SizedBox(width: 10),
                 _buildRadio('웹툰', _selectedStyle, (v) {
                   setState(() => _selectedStyle = v!);
                 }),

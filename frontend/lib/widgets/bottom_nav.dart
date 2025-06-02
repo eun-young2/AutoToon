@@ -9,7 +9,7 @@ class BottomNav extends StatelessWidget {
     LineAwesomeIcons.home_solid,
     LineAwesomeIcons.calendar,
     LineAwesomeIcons.plus_square,
-    LineAwesomeIcons.heart,
+    LineAwesomeIcons.history_solid,
     LineAwesomeIcons.user,
   ];
 

@@ -49,17 +49,35 @@ class DxApp extends StatelessWidget {
       // 실제로 사용할 모드 선택
       themeMode: themeNotifier.isPaperMode ? ThemeMode.dark : ThemeMode.light,
 
+      // 최초 진입 라우트
       initialRoute: '/intro',
+
       routes: {
-        '/login': (context) => const LoginPage(),
-        '/signup': (context) => const SignupPage(),
-        '/main': (context) => const MainWithTabs(),
-        '/calendar': (context) => const CalendarPage(),
-        '/write': (context) => const WritePage(),
-        '/history': (_) => const HistoryPage(),
-        '/intro': (context) => const IntroPage(),
-        '/detail': (context) => const DetailPage(),
-        '/member': (context) => const MemberInfoPage(),
+        '/login':    (context) => const LoginPage(),
+        '/signup':   (context) => const SignupPage(),
+
+        // ─────────────────── 탭으로 진입하는 경로들 ───────────────────
+        // '/main'로 들어오면 “홈 탭”이 활성화 된 MainWithTabs
+        '/main':     (context) => const MainWithTabs(initialIndex: 0),
+
+        // '/calendar'로 들어오면 “캘린더 탭”이 활성화 된 MainWithTabs
+        '/calendar': (context) => const MainWithTabs(initialIndex: 1),
+
+        // '/write'를 탭 2(글쓰기 탭)로 재사용하고 싶다면
+        '/writeTab': (context) => const MainWithTabs(initialIndex: 2),
+
+        // '/history'로 들어오면 “히스토리 탭”이 활성화 된 MainWithTabs
+        '/history':  (context) => const MainWithTabs(initialIndex: 3),
+
+        // '/member'로 들어오면 “멤버 탭”이 활성화 된 MainWithTabs
+        '/member':   (context) => const MainWithTabs(initialIndex: 4),
+
+        // ─────────────────── 탭 외부로 띄우는 경로들 ───────────────────
+        '/intro':    (context) => const IntroPage(),
+        '/detail':   (context) => const DetailPage(),
+
+        // 혹시 탭 외부에서 직접 WritePage를 띄우고 싶으면
+        '/write':    (context) => const WritePage(),
       },
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
@@ -77,28 +95,28 @@ class DxApp extends StatelessWidget {
 /// ─────────────────────────────────────────────
 /// /main 루트에서 보여줄 탭 구조
 class MainWithTabs extends StatelessWidget {
-  const MainWithTabs({super.key});
+  final int initialIndex;
+  const MainWithTabs({Key? key, this.initialIndex = 0}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    return const DefaultTabController(
+    return DefaultTabController(
       length: 5, // 탭 개수 (홈, 일정, 게시, 좋아요, 프로필)
-      initialIndex: 0, // 시작 탭
-      child: Scaffold(
-        // AppBar 나 Drawer 가 필요하면 여기 추가 가능
-        body: TabBarView(
+      initialIndex: initialIndex, // 시작탭
+      child: const Scaffold(
+        body: const TabBarView(
           physics: BouncingScrollPhysics(),
           children: [
-            MainPage(),
-            CalendarPage(),
-            WritePage(),
-            HistoryPage(),
-            MemberInfoPage(),
+            MainPage(),       // index = 0
+            CalendarPage(),   // index = 1
+            WritePage(),      // index = 2
+            HistoryPage(),    // index = 3
+            MemberInfoPage(), // index = 4
           ],
         ),
         bottomNavigationBar: BottomNav(),
       ),
-    ); 
+    );
   }
 }
 

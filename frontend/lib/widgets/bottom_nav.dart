@@ -38,7 +38,7 @@ class BottomNav extends StatelessWidget {
             color: Colors.white,
             boxShadow: [
               BoxShadow(
-                  color: Colors.black26, blurRadius: 1, offset: Offset(0, -2)),
+                  color: Colors.black26, blurRadius: 1, offset: Offset(0, -1)),
             ],
           ),
           child: Stack(

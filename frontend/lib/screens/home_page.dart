@@ -4,9 +4,8 @@ import 'package:intl/intl.dart';
 import 'package:line_awesome_flutter/line_awesome_flutter.dart';
 import '../utils/attendance_helper.dart';
 import 'write_page.dart' // postImages / postDateTimes
-    show
-        postImages,
-        postDateTimes;
+    show postImages, postDateTimes;
+import '../widgets/double_back_to_exit.dart';
 
 // 최신순, 오래된순
 enum SortOption { latest, oldest }
@@ -95,49 +94,55 @@ class _MainPageState extends State<MainPage> {
       ),
 
       /// ───────────────── Body ──────────────────────
-      body: postImages.isEmpty
-          ? const Center(child: Text('작성한 일기가 없습니다'))
-          : ListView.separated(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              itemCount: indexes.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 24),
-              itemBuilder: (_, listIdx) {
-                final realIdx = indexes[listIdx];
-                final date = postDateTimes[realIdx];
-                final img = postImages[realIdx];
-
-                return GestureDetector(
-                  onTap: () => Navigator.pushNamed(
-                    context,
-                    '/detail',
-                    arguments: realIdx, // detail_page 는 단일 index 처리
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // 날짜 헤더
-                      Text(
-                        DateFormat('yyyy.MM.dd').format(date),
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
+      body: DoubleBackToExit(
+        child: postImages.isEmpty
+            ? const Center(child: Text('작성한 일기가 없습니다'))
+            : ListView.separated(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                itemCount: indexes.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 24),
+                itemBuilder: (_, listIdx) {
+                  final realIdx = indexes[listIdx];
+                  final date = postDateTimes[realIdx];
+                  final img = postImages[realIdx];
+        
+                  return GestureDetector(
+                    onTap: () => Navigator.pushNamed(
+                      context,
+                      '/detail',
+                      arguments: {
+                        'idx' :realIdx,
+                        'reward': 0,   // 보상이 없으면 0
+                        'source': 'home'
+                      }  // detail_page 는 단일 index 처리
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // 날짜 헤더
+                        Text(
+                          DateFormat('yyyy.MM.dd').format(date),
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 8),
-                      // 썸네일 (가로꽉차게 1칸)
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(16),
-                        child: Image.file(
-                          File(img.path),
-                          width: double.infinity,
-                          fit: BoxFit.cover,
+                        const SizedBox(height: 8),
+                        // 썸네일 (가로꽉차게 1칸)
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(16),
+                          child: Image.file(
+                            File(img.path),
+                            width: double.infinity,
+                            fit: BoxFit.cover,
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                );
-              },
-            ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+      ),
     );
   }
 }

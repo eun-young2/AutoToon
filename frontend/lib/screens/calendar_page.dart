@@ -7,6 +7,7 @@ import 'package:dx_project_dev2/widgets/alert_dialogs.dart';
 import 'write_page.dart'; // postImages, postTitles, postContents, postDateTimes
 import 'package:flutter_datetime_picker_plus/flutter_datetime_picker_plus.dart'
     as picker;
+import '../widgets/double_back_to_exit.dart';
 
 class CalendarPage extends StatefulWidget {
   const CalendarPage({Key? key}) : super(key: key);
@@ -64,7 +65,11 @@ class _CalendarPageState extends State<CalendarPage> {
         Navigator.pushNamed(
           context,
           '/detail',
-          arguments: posts.first,   // ← List → int 로 변경
+          arguments: {
+            'idx': posts.first,
+            'reward': 0,   // 보상이 없으면 0
+            'source': 'calendar',
+          },
         );
       }
     }
@@ -122,223 +127,186 @@ class _CalendarPageState extends State<CalendarPage> {
         ),
         iconTheme: const IconThemeData(color: Colors.black),
       ),
-      body: SingleChildScrollView(
-        physics: const BouncingScrollPhysics(),
-        child: Column(
-          children: [
-            const SizedBox(height: 16),
-
-            /// ─────────────────────────────────────────────
-            // 년/월/일 조절 가능 창 띄우기
-            GestureDetector(
-              onTap: () {
-                picker.DatePicker.showDatePicker(
-                  context,
-                  showTitleActions: true,
-                  currentTime: _focused,
-                  minTime: DateTime(2000, 1, 1),
-                  maxTime: DateTime(2100, 12, 31),
-                  locale: picker.LocaleType.ko,
-
-                  // 사용자가 스크롤할 때마다 date가 바뀝니다.
-                  onChanged: (_) {},
-                  onConfirm: (date) {
-                    setState(() {
-                      _changeMonth(date); // focused와 selected를 date 기준으로 업데이트
-                      _selected = date;
-                    });
-                  },
-                );
-              },
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-                decoration: BoxDecoration(
-                  color: Colors.transparent,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    /// ─────────────────────────────────────────────
-                    // 큰 숫자 (일)
-                    Text(
-                      '${(_selected ?? _focused).day}',
-                      style: const TextStyle(
-                        fontSize: 50,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black,
+body: DoubleBackToExit(
+        child: SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
+          child: Column(
+            children: [
+              const SizedBox(height: 16),
+        
+              /// ─────────────────────────────────────────────
+              // 년/월/일 조절 가능 창 띄우기
+              GestureDetector(
+                onTap: () {
+                  picker.DatePicker.showDatePicker(
+                    context,
+                    showTitleActions: true,
+                    currentTime: _focused,
+                    minTime: DateTime(2000, 1, 1),
+                    maxTime: DateTime(2100, 12, 31),
+                    locale: picker.LocaleType.ko,
+        
+                    // 사용자가 스크롤할 때마다 date가 바뀝니다.
+                    onChanged: (_) {},
+                    onConfirm: (date) {
+                      setState(() {
+                        _changeMonth(date); // focused와 selected를 date 기준으로 업데이트
+                        _selected = date;
+                      });
+                    },
+                  );
+                },
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.transparent,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      /// ─────────────────────────────────────────────
+                      // 큰 숫자 (일)
+                      Text(
+                        '${(_selected ?? _focused).day}',
+                        style: const TextStyle(
+                          fontSize: 50,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black,
+                        ),
                       ),
-                    ),
-                    Text(
-                      DateFormat('MMMM').format(_focused).toUpperCase(),
-                      style: const TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w500,
-                          color: Colors.black54),
-                    ),
-                  ],
+                      Text(
+                        DateFormat('MMMM').format(_focused).toUpperCase(),
+                        style: const TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.black54),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-            /// ─────────────────────────────────────────────
-            const SizedBox(height: 12),
-
-            /// ─────────────────────────────────────────────
-            // 달력 영역: height에 따라 축소/확대
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              height: calendarHeight,
-              child: ClipRect( // overflow 방지
-                child: TableCalendar(
-                  locale: 'ko_KR',
-                  firstDay: DateTime.utc(2000),
-                  lastDay: DateTime.utc(2100),
-                  focusedDay: _focused,
-                  headerVisible: false,
-
-                  // 그리드 크기 지정: 요일 헤더와 각 행 높이 지정
-                  daysOfWeekHeight: daysOfWeekHeight,
-                  rowHeight: rowHeight,
-
-                  // 요일 글씨 스타일
-                  daysOfWeekStyle: DaysOfWeekStyle(
-                    weekdayStyle: TextStyle(
-                      color: Colors.grey.shade600,
-                      fontWeight: FontWeight.w600,
+              /// ─────────────────────────────────────────────
+              const SizedBox(height: 12),
+        
+              /// ─────────────────────────────────────────────
+              // 달력 영역: height에 따라 축소/확대
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                height: calendarHeight,
+                child: ClipRect( // overflow 방지
+                  child: TableCalendar(
+                    locale: 'ko_KR',
+                    firstDay: DateTime.utc(2000),
+                    lastDay: DateTime.utc(2100),
+                    focusedDay: _focused,
+                    headerVisible: false,
+        
+                    // 그리드 크기 지정: 요일 헤더와 각 행 높이 지정
+                    daysOfWeekHeight: daysOfWeekHeight,
+                    rowHeight: rowHeight,
+        
+                    // 요일 글씨 스타일
+                    daysOfWeekStyle: DaysOfWeekStyle(
+                      weekdayStyle: TextStyle(
+                        color: Colors.grey.shade600,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      weekendStyle: const TextStyle(
+                        color: Color(0xFFE97B75),
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
-                    weekendStyle: const TextStyle(
-                      color: Color(0xFFE97B75),
-                      fontWeight: FontWeight.w600,
+        
+                    // ② 다른 월 날짜 숨기기
+                    calendarStyle: const CalendarStyle(
+                      outsideDaysVisible: true,
+                      outsideDecoration: BoxDecoration(
+                        color: Colors.white,
+                      ),
+                      // defaultBuilder 쓰므로 장식은 Builders 로만 처리
+                      defaultDecoration: BoxDecoration(),
+                      weekendDecoration: BoxDecoration(),
+                      todayDecoration: BoxDecoration(),
+                      selectedDecoration: BoxDecoration(),
                     ),
-                  ),
 
-                  // ② 다른 월 날짜 숨기기
-                  calendarStyle: const CalendarStyle(
-                    outsideDaysVisible: true,
-                    outsideDecoration: BoxDecoration(
-                      color: Colors.white,
-                    ),
-                    // defaultBuilder 쓰므로 장식은 Builders 로만 처리
-                    defaultDecoration: BoxDecoration(),
-                    weekendDecoration: BoxDecoration(),
-                    todayDecoration: BoxDecoration(),
-                    selectedDecoration: BoxDecoration(),
-                  ),
-
-                  // 셀 커스터마이징
-                  calendarBuilders: CalendarBuilders(
-                    dowBuilder: (context, day) =>
-                      Container(
-                        decoration: BoxDecoration(
-                          border: Border.all(color: Colors.grey.shade100),
-                          color: Colors.white,
-                        ),
-                        alignment: Alignment.center,
-                        child: Text(
-                          DateFormat.E('ko_KR').format(day),
-                          style: TextStyle(
-                              color: Colors.grey.shade600,
-                              fontWeight: FontWeight.w600,
+                    // 달력 좌우로 스와이프하면 월 자동 바뀜
+                    onPageChanged: (DateTime newFocused) {
+                      _changeMonth(newFocused);
+                    },
+                    
+                    // 셀 커스터마이징
+                    calendarBuilders: CalendarBuilders(
+                      dowBuilder: (context, day) =>
+                        Container(
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.grey.shade100),
+                            color: Colors.white,
+                          ),
+                          alignment: Alignment.center,
+                          child: Text(
+                            DateFormat.E('ko_KR').format(day),
+                            style: TextStyle(
+                                color: Colors.grey.shade600,
+                                fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
-                      ),
-                    defaultBuilder: (context, day, focusedDay) {
-                      return Container(
-                        decoration: BoxDecoration(
-                          border: Border.all(color: Colors.grey.shade100),
-                          color: Colors.white,
-                        ),
-                        child: Stack(
-                          children: [
-                            // 날짜 숫자: 왼쪽 상단
-                            Positioned(
-                              top: 4,
-                              left: 4,
-                              child: Text(
-                                '${day.day}',
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.black87,
-                                ),
-                              ),
-                            ),
-                            // 중앙의 이미지 자리(placeholder)
-                            Center(
-                              child: SizedBox(
-                                width: 24,
-                                height: 24,
-                                child: Container(
-                                    // TODO: 실제 캐릭터 이미지로 교체
-                                    ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                    // 다른 월 날짜 셀 (숫자 숨김)
-                    outsideBuilder: (context, day, focusedDay) {
-                      return Container(
-                        decoration: BoxDecoration(
-                          border: Border.all(color: Colors.grey.shade100),
-                          color: Colors.white,
-                        ),
-                      );
-                    },
-                    // todayBuilder / selectedBuilder 도 동일한 border + 배경 색만 다르게 추가하세요
-                    // 오늘 강조도 원하시면 추가
-                    todayBuilder: (ctx, day, focusedDay) {
-                      return Container(
-                        decoration: BoxDecoration(
-                          border: Border.all(color: Colors.grey.shade100),
-                          color: Colors.white,
-                        ),
-                        child: Stack(
-                          children: [
-                            Positioned(
-                              top: 4,
-                              left: 4,
-                              child: Container(
-                                width: 28,
-                                height: 28,
-                                alignment: Alignment.center,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: Colors.redAccent,
-                                    width: 2,
-                                  ),
-                                ),
+                      defaultBuilder: (context, day, focusedDay) {
+                        return Container(
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.grey.shade100),
+                            color: Colors.white,
+                          ),
+                          child: Stack(
+                            children: [
+                              // 날짜 숫자: 왼쪽 상단
+                              Positioned(
+                                top: 4,
+                                left: 4,
                                 child: Text(
                                   '${day.day}',
-                                  style:
-                                      DefaultTextStyle.of(context).style.copyWith(
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.w600,
-                                            color: Colors.black87,
-                                          ),
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.black87,
+                                  ),
                                 ),
                               ),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-
-                    // ③ 선택해도 “흰 배경+테두리” 유지
-                    selectedBuilder: (ctx, day, focusedDay) {
-                      // ① 오늘인지 검사
-                      final isToday = isSameDay(day, DateTime.now());
-
-                      return Container(
-                        decoration: BoxDecoration(
-                          border: Border.all(color: Colors.grey.shade300, width: 2),
-                          color: Colors.white,
-                        ),
-                        child: Stack(
-                          children: [
-                            if (isToday)
+                              // 중앙의 이미지 자리(placeholder)
+                              Center(
+                                child: SizedBox(
+                                  width: 24,
+                                  height: 24,
+                                  child: Container(
+                                      // TODO: 실제 캐릭터 이미지로 교체
+                                      ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                      // 다른 월 날짜 셀 (숫자 숨김)
+                      outsideBuilder: (context, day, focusedDay) {
+                        return Container(
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.grey.shade100),
+                            color: Colors.white,
+                          ),
+                        );
+                      },
+                      // todayBuilder / selectedBuilder 도 동일한 border + 배경 색만 다르게 추가하세요
+                      // 오늘 강조도 원하시면 추가
+                      todayBuilder: (ctx, day, focusedDay) {
+                        return Container(
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.grey.shade100),
+                            color: Colors.white,
+                          ),
+                          child: Stack(
+                            children: [
                               Positioned(
                                 top: 4,
                                 left: 4,
@@ -349,7 +317,7 @@ class _CalendarPageState extends State<CalendarPage> {
                                   decoration: BoxDecoration(
                                     shape: BoxShape.circle,
                                     border: Border.all(
-                                      color: Colors.redAccent, // 원 테두리 색
+                                      color: Colors.redAccent,
                                       width: 2,
                                     ),
                                   ),
@@ -363,55 +331,99 @@ class _CalendarPageState extends State<CalendarPage> {
                                             ),
                                   ),
                                 ),
-                              )
-                            else
-                              // ③ 오늘이 아니면 기본 숫자 표시
-                              Positioned(
-                                top: 4,
-                                left: 4,
-                                child: Text(
-                                  '${day.day}',
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.black87,
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+        
+                      // ③ 선택해도 “흰 배경+테두리” 유지
+                      selectedBuilder: (ctx, day, focusedDay) {
+                        // ① 오늘인지 검사
+                        final isToday = isSameDay(day, DateTime.now());
+        
+                        return Container(
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.grey.shade300, width: 2),
+                            color: Colors.white,
+                          ),
+                          child: Stack(
+                            children: [
+                              if (isToday)
+                                Positioned(
+                                  top: 4,
+                                  left: 4,
+                                  child: Container(
+                                    width: 28,
+                                    height: 28,
+                                    alignment: Alignment.center,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: Colors.redAccent, // 원 테두리 색
+                                        width: 2,
+                                      ),
+                                    ),
+                                    child: Text(
+                                      '${day.day}',
+                                      style:
+                                          DefaultTextStyle.of(context).style.copyWith(
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.w600,
+                                                color: Colors.black87,
+                                              ),
+                                    ),
+                                  ),
+                                )
+                              else
+                                // ③ 오늘이 아니면 기본 숫자 표시
+                                Positioned(
+                                  top: 4,
+                                  left: 4,
+                                  child: Text(
+                                    '${day.day}',
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.black87,
+                                    ),
                                   ),
                                 ),
+                              Center(
+                                child: SizedBox(
+                                  width: 24,
+                                  height: 24,
+                                  child: Container(),
+                                ),
                               ),
-                            Center(
-                              child: SizedBox(
-                                width: 24,
-                                height: 24,
-                                child: Container(),
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                    onDaySelected: _onDaySelected,
+                    selectedDayPredicate: (d) => isSameDay(d, _selected ?? _focused),
                   ),
-                  onDaySelected: _onDaySelected,
-                  selectedDayPredicate: (d) => isSameDay(d, _selected ?? _focused),
                 ),
               ),
-            ),
-            /// ─────────────────────────────────────────────
-
-            /// ─────────────────────────────────────────────
-            // 통계 영역
-            Transform.translate(
-              offset: const Offset(0, -100),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 300),
-                child: SentimentPanel(
-                  focused: _focused,
-                  expanded: _statsExpanded,
-                  onExpandChanged: (e) => setState(() => _statsExpanded = e),
+              /// ─────────────────────────────────────────────
+        
+              /// ─────────────────────────────────────────────
+              // 통계 영역
+              Transform.translate(
+                offset: const Offset(0, -100),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
+                  child: SentimentPanel(
+                    focused: _focused,
+                    expanded: _statsExpanded,
+                    onExpandChanged: (e) => setState(() => _statsExpanded = e),
+                  ),
                 ),
               ),
-            ),
-            /// ─────────────────────────────────────────────
-          ],
+              /// ─────────────────────────────────────────────
+            ],
+          ),
         ),
       ),
     );

@@ -23,6 +23,10 @@
 	<key>CFBundleVersion</key>
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+    <string>갤러리에 이미지를 저장하기 위해 접근이 필요합니다.</string>
+    <key>NSPhotoLibraryUsageDescription</key>
+    <string>갤러리에 이미지를 저장하기 위해 접근이 필요합니다.</string>
 	<true/>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>

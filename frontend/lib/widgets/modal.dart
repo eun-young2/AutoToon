@@ -169,7 +169,7 @@ class AttendanceModal extends StatelessWidget {
           children: [
             // ① 타이틀: “xxx일차 방문 성공!”
             Text(
-              '$totalDays일차\n방문 성공!',
+              '$totalDays일차 방문 성공!',
               textAlign: TextAlign.center,
               style: const TextStyle(
                 fontSize: 20,
@@ -180,10 +180,29 @@ class AttendanceModal extends StatelessWidget {
             const SizedBox(height: 16),
 
             // ② 보상 안내 텍스트: 오늘 받은 크레딧
-            Text(
-              '오늘 출석으로 $reward 크레딧을 받으셨습니다.',
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Image.asset(
+                  'assets/images/credit.png',
+                  width: 32,
+                  height: 32,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'x $reward',
+                  style: const TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              '크레딧이 적립되었습니다!',
               textAlign: TextAlign.center,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 16,
                 color: Colors.black54,
               ),
@@ -239,8 +258,27 @@ class WelcomeModal extends StatelessWidget {
             const SizedBox(height: 12),
 
             // 메시지: 크레딧 안내
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Image.asset(
+                  'assets/images/credit.png',
+                  width: 32,
+                  height: 32,
+                ),
+                const SizedBox(width: 8),
+                const Text(
+                  'x 300',
+                  style: const TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
             const Text(
-              '300 크레딧이 적립되었습니다!',
+              '크레딧이 적립되었습니다!',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 16,

@@ -3,7 +3,9 @@ import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../widgets/home_pill_banner.dart';
 import '../widgets/modal.dart'; // AttendanceModal import
-
+///──────────────────────────────────────────
+// 리워드 관련해서는 여기에 다 넣어놓겠습니다.
+///──────────────────────────────────────────
 class AttendanceHelper {
   /// SharedPreferences에 저장된 출석 데이터를 불러와서,
   /// 1) 처음 로그인 시 환영 모달 띄우고 300 크레딧 적립
@@ -110,8 +112,10 @@ class AttendanceHelper {
       },
     );
 
+    // 배너 띄우기
     overlay.insert(entry);
 
+    // 2초 뒤 자동으로 지우기
     Future.delayed(const Duration(seconds: 2), () {
       entry.remove();
     });

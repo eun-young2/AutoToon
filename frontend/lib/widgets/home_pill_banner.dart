@@ -46,35 +46,39 @@ class _PillBannerState extends State<PillBanner>
 
   @override
   Widget build(BuildContext context) {
-    // SafeArea를 활용해 상태바 위에도 안전하게 표시
-    return Material(
-      color: Colors.transparent,
-      child: SlideTransition(
-        position: _slideAnim,
-        child: SafeArea(
-          bottom: false,
-          child: Align(
-            alignment: Alignment.topCenter,
-            child: Container(
-              margin: const EdgeInsets.only(top: 16, left: 40, right: 40),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(24),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.15),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
+    // IgnorePointer를 최상단에 놓아서, 배너 위젯이 터치 이벤트를 가로채지 않도록 처리
+    return IgnorePointer(
+      ignoring: true, // true로 설정하면 내부 모든 위젯이 터치를 무시하고 뒤로 전달됨
+      child: Material(
+        color: Colors.transparent,
+        child: SlideTransition(
+          position: _slideAnim,
+          // SafeArea를 활용해 상태바 위에도 안전하게 표시
+          child: SafeArea(
+            bottom: false,
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: Container(
+                margin: const EdgeInsets.only(top: 16, left: 40, right: 40),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(24),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.15),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Text(
+                  widget.message,
+                  style: const TextStyle(
+                    color: Colors.black87,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
                   ),
-                ],
-              ),
-              child: Text(
-                widget.message,
-                style: const TextStyle(
-                  color: Colors.black87,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
                 ),
               ),
             ),

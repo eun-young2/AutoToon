@@ -30,7 +30,26 @@
     image_picker: ^0.8.7+4
     dotted_border: ^2.0.0
     country_picker: ^2.0.27
+    
+    # 크레딧 쓸때 이용
     shared_preferences: ^2.5.3
+
+    # 종료방어 토스트
+    fluttertoast: ^8.2.12
+
+    # 툰 갤러리에 저장하는 라이브러리
+    image_gallery_saver_plus: ^4.0.1
+    permission_handler: ^12.0.0+1
+
+    # 액자 대시보드 어플 바로가기
+    device_info_plus: ^11.4.0
+    url_launcher: ^6.3.1
+
+    # 로딩 인디케이터(질문생성 부분)
+    smooth_page_indicator: ^1.2.1
+    
+    # 알림 설정 라이브러리
+    #flutter_local_notifications: ^19.2.1
 
   dev_dependencies:
     flutter_test:
@@ -45,6 +64,7 @@
       - assets/modals/
       - assets/stamps/
       - assets/items/
+      - assets/example/
     fonts:
       - family: 온글잎 혜련
         fonts:

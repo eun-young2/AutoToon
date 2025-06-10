@@ -5,7 +5,7 @@ import httpx
 import os
 from dotenv import load_dotenv
 from sqlalchemy.orm import Session
-from database import get_db
+from backend.database import get_db
 from backend.services.user_service import save_kakao_user_to_db
 from backend.database import Base, engine_sync
 import backend.models.user

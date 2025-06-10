@@ -1,9 +1,9 @@
 # backend/routers/attendance.py
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from services.attendance_service import check_and_reward_attendance
-from database import get_db
-from schemas import AttendanceCheckResponse
+from backend.services.attendance_service import check_and_reward_attendance
+from backend.database import get_db
+from backend.schemas.schemas import AttendanceCheckResponse
 
 router = APIRouter(prefix="/attendance", tags=["attendance"])
 

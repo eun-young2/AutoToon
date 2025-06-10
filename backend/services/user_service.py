@@ -1,5 +1,5 @@
 from datetime import datetime
-from models.user import User
+from backend.models.user import User
 
 def save_kakao_user_to_db(kakao_user, db):
     print("save_kakao_user_to_db 함수가 호출되었습니다.", flush=True)
@@ -38,6 +38,9 @@ def save_kakao_user_to_db(kakao_user, db):
         user_gender=user_gender,
         user_age_range=user_age_range,
         created_at=created_at,
+        credit=300,           # 가입과 동시에 300 세팅
+        correction_tape_item=0,
+        diary_item=0
     )
     try:
         db.add(db_user)

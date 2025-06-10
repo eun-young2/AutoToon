@@ -6,7 +6,7 @@ import os
 from dotenv import load_dotenv
 from sqlalchemy.orm import Session
 from database import get_db
-from services.user_service import save_kakao_user_to_db
+from backend.services.user_service import save_kakao_user_to_db
 from backend.database import Base, engine_sync
 import backend.models.user
 import backend.models.style_model
@@ -19,6 +19,8 @@ from backend.routers.style import router as style_router
 from backend.routers.toon import router as toon_router
 from backend.tagging_gpt_fastapi import router as tagging_router
 from backend.routers.tmi import router as tmi_router
+from backend.routers.attendance import router as attendance_router
+from fastapi.routing import APIRoute
 
 load_dotenv()
 print("💡 KAKAO_REDIRECT_URI =", os.getenv("KAKAO_REDIRECT_URI"))
@@ -29,6 +31,9 @@ Base.metadata.create_all(bind=engine_sync)
 
 app = FastAPI()
 
+app.include_router(user_router, prefix="/api", tags=["users"])
+app.include_router(attendance_router)
+
 # CORS 설정 (필요하다면)
 app.add_middleware(
     CORSMiddleware,
@@ -37,6 +42,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 KAKAO_CLIENT_ID = os.getenv("KAKAO_CLIENT_ID")
 KAKAO_CLIENT_SECRET = os.getenv("KAKAO_CLIENT_SECRET")
@@ -53,6 +59,7 @@ def login_kakao():
     return RedirectResponse(redirect_url)
 
 @app.get("/auth/kakao/callback")
+@app.get("/auth/kakao/callback/")
 async def kakao_callback(code: str, db: Session = Depends(get_db)):
     token_url = "https://kauth.kakao.com/oauth/token"
     data = {
@@ -95,10 +102,13 @@ async def kakao_callback(code: str, db: Session = Depends(get_db)):
     #     url=f"http://10.0.2.2:3000/main?nickname={user_json['properties']['nickname']}"
     # )
     nickname = user_json["properties"]["nickname"]
+    user_id_str = str(user_json["id"])
     
     return RedirectResponse(
-        url=f"autotoon://login-success?nickname={nickname}&token={access_token}"
-    )
+    url=f"autotoon://login-success?userId={user_id_str}"
+        f"&nickname={nickname}"
+        f"&token={access_token}"
+)
 
     # --- [앱(모바일)용: 실제 배포시 사용, 위 코드 삭제/주석처리!] ---
     # return RedirectResponse(url="myapp://main")  # 앱 딥링크 등으로 이동 (예시)

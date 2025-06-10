@@ -1,6 +1,6 @@
 # backend/schemas.py
 from pydantic import BaseModel, constr, conint
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional
 from datetime import datetime, date
 
@@ -54,3 +54,20 @@ class AttendanceCheckResponse(BaseModel):
 
     class Config:
         orm_mode = True
+
+class CreditIncrementRequest(BaseModel):
+    """
+    user.credit에 더할 양(amount)을 받을 때 사용하는 스키마
+    예: { "amount": 30 }
+    """
+    amount: int = Field(
+        ...,
+        description="얼마만큼 credit을 증가시킬지. (positive integer)"
+    )
+
+    class Config:
+        schema_extra = {
+            "example": {
+                "amount": 30
+            }
+        }

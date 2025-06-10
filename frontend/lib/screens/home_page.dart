@@ -4,8 +4,11 @@ import 'package:intl/intl.dart';
 import 'package:line_awesome_flutter/line_awesome_flutter.dart';
 import '../utils/attendance_helper.dart';
 import 'write_page.dart' // postImages / postDateTimes
-    show postImages, postDateTimes;
+    show
+        postImages,
+        postDateTimes;
 import '../widgets/double_back_to_exit.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 // 최신순, 오래된순
 enum SortOption { latest, oldest }
@@ -36,9 +39,27 @@ class _MainPageState extends State<MainPage> {
     super.initState();
     // 첫 번째 프레임이 그려진 뒤 출석 체크 로직을 한 번 실행
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      AttendanceHelper.checkAttendance(context);
+      // AttendanceHelper.checkAttendance(context);
+      _performAttendanceCheck();
     });
   }
+
+  /// SharedPreferences에 저장된 userId를 꺼내서 AttendanceHelper에 전달합니다.
+  Future<void> _performAttendanceCheck() async {
+    final prefs = await SharedPreferences.getInstance();
+    final storedUserId = prefs.getString('userId') ?? '';
+
+    if (storedUserId.isEmpty) {
+      // 아직 userId가 없다면 (예: 로그인 로직에서 저장을 안 해 두었다면)
+      // 로그를 남기거나, 별도로 에러 처리를 해 주세요.
+      debugPrint("⚠️ MainPage: SharedPreferences에 'userId'가 없습니다.");
+      return;
+    }
+
+    // userId가 있다면, AttendanceHelper에 context와 userId를 넘겨서 출석 체크 실행
+    await AttendanceHelper.checkAttendance(context, storedUserId);
+  }
+
   /// ──────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
@@ -98,24 +119,23 @@ class _MainPageState extends State<MainPage> {
         child: postImages.isEmpty
             ? const Center(child: Text('작성한 일기가 없습니다'))
             : ListView.separated(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 itemCount: indexes.length,
                 separatorBuilder: (_, __) => const SizedBox(height: 24),
                 itemBuilder: (_, listIdx) {
                   final realIdx = indexes[listIdx];
                   final date = postDateTimes[realIdx];
                   final img = postImages[realIdx];
-        
+
                   return GestureDetector(
-                    onTap: () => Navigator.pushNamed(
-                      context,
-                      '/detail',
-                      arguments: {
-                        'idx' :realIdx,
-                        'reward': 0,   // 보상이 없으면 0
-                        'source': 'home'
-                      }  // detail_page 는 단일 index 처리
-                    ),
+                    onTap: () =>
+                        Navigator.pushNamed(context, '/detail', arguments: {
+                      'idx': realIdx,
+                      'reward': 0, // 보상이 없으면 0
+                      'source': 'home'
+                    } // detail_page 는 단일 index 처리
+                            ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [

@@ -1,19 +1,24 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math';
-import 'package:smooth_page_indicator/smooth_page_indicator.dart';
+import 'dart:io';
 
-import '../widgets/member_info_components.dart';
-import 'detail_page.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:smooth_page_indicator/smooth_page_indicator.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:http/http.dart' as http;
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:csv/csv.dart';
-import 'package:dx_project_dev2/widgets/alert_dialogs.dart';
-import 'package:dx_project_dev2/widgets/modal.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:intl/intl.dart';
-import '../widgets/double_back_to_exit.dart';
+
+import '../widgets/alert_dialogs.dart';
 import '../widgets/chat_bubble.dart';
+import '../widgets/double_back_to_exit.dart';
+import '../widgets/member_info_components.dart';
+import '../widgets/modal.dart';
+import 'detail_page.dart';
 
 /// 전역 리스트 선언 (이미지, 텍스트, 작성시간, 이미지스타일)
 final List<XFile> postImages = [];
@@ -35,7 +40,6 @@ class WritePage extends StatefulWidget {
   State<WritePage> createState() => _WritePageState();
 }
 
-/// ─────────────────────────────────────────────
 class _WritePageState extends State<WritePage> {
   XFile? _image;
   final ImagePicker _picker = ImagePicker();
@@ -43,8 +47,8 @@ class _WritePageState extends State<WritePage> {
   String _selectedStyle = '캐릭터';
   bool _isEditMode = false; // 수정 모드 여부
 
-  String? _questionText; // 질문 텍스트 상태  //🌸
-  bool _isLoadingQuestion = false; // 질문 로딩 중 여부 🌸
+  String? _questionText; // 질문 텍스트 상태
+  bool _isLoadingQuestion = false; // 질문 로딩 중 여부
 
   /// 로딩 애니메이션용 인덱스 (0, 1, 2 순환)
   int _loadingDotIndex = 0;
@@ -60,7 +64,8 @@ class _WritePageState extends State<WritePage> {
     });
 
     // 600ms마다 _loadingDotIndex를 0→1→2→1→0… 순환시켜 애니메이션을 갱신
-    _loadingDotTimer = Timer.periodic(const Duration(milliseconds: 600), (timer) {
+    _loadingDotTimer =
+        Timer.periodic(const Duration(milliseconds: 600), (timer) {
       setState(() {
         // 인덱스를 더하거나 빼기 전에, 경계(0 또는 2)에 도달하면 방향을 변경
         if (_loadingDotIndex == 2) {
@@ -96,6 +101,8 @@ class _WritePageState extends State<WritePage> {
   int _correctionTapeCount = 0;
   int _diaryCount = 0;
 
+  late final String _baseUrl;
+
   @override
   void initState() {
     super.initState();
@@ -116,8 +123,12 @@ class _WritePageState extends State<WritePage> {
       }
     }
 
-    // SharedPreferences에서 보유 아이템 개수 불러오기
+    // SharedPreferences에서 보유 아이템 개수 불러오기 (초기 UI 반영용)
     _loadCountsFromPrefs();
+
+    // 서버에서 아이템 개수를 가져와서 상태 및 SharedPreferences 동기화
+    _loadCountsFromServer();
+
     // 글자 수 실시간 업데이트를 위해 컨트롤러 리스너 추가
     _contentCtrl.addListener(() {
       setState(() {});
@@ -136,9 +147,12 @@ class _WritePageState extends State<WritePage> {
 
     // CSV 프롬프트 읽기
     _loadPrompts();
+
+    // .env에서 API_BASE_URL 가져오기
+    _baseUrl = dotenv.env['API_BASE_URL'] ?? "http://10.0.2.2:8000";
   }
 
-  /// SharedPreferences에서 MemberInfoPage가 저장해 둔 아이템 개수 불러오는 메서드
+  /// SharedPreferences에서 아이템 개수만 가져오기 (초기 UI 반영용)
   Future<void> _loadCountsFromPrefs() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
@@ -147,11 +161,42 @@ class _WritePageState extends State<WritePage> {
     });
   }
 
-  /// ─────────────────────────────────────────────
+  /// 서버에서 사용자 정보를 GET → correction_tape_item, diary_item 가져와서 상태 및 SharedPreferences 동기화
+  Future<void> _loadCountsFromServer() async {
+    final prefs = await SharedPreferences.getInstance();
+    final userId = prefs.getString('userId');
+
+    if (userId == null || userId.isEmpty) return;
+
+    final uri = Uri.parse('$_baseUrl/api/users/$userId');
+
+    try {
+      final response = await http.get(uri);
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final serverTapeCount = data['correction_tape_item'] as int? ?? 0;
+        final serverDiaryCount = data['diary_item'] as int? ?? 0;
+
+        // 로컬 상태에 반영
+        setState(() {
+          _correctionTapeCount = serverTapeCount;
+          _diaryCount = serverDiaryCount;
+        });
+
+        // SharedPreferences에도 동기화
+        await prefs.setInt('correctionTapeCount', serverTapeCount);
+        await prefs.setInt('diaryCount', serverDiaryCount);
+      } else {
+        print('사용자 정보 조회 실패 (HTTP ${response.statusCode}): ${response.body}');
+      }
+    } catch (e) {
+      print('사용자 정보 조회 중 오류: $e');
+    }
+  }
+
   @override
   void dispose() {
     _contentCtrl.dispose();
-    // 로딩 타이머와 PageController 정리
     _loadingDotTimer?.cancel();
     super.dispose();
   }
@@ -187,11 +232,9 @@ class _WritePageState extends State<WritePage> {
   String get _randomPrompt {
     final rnd = Random();
     if (_facts.isNotEmpty && _balancePrompts.isNotEmpty) {
-      if (rnd.nextBool()) {
-        return _facts[rnd.nextInt(_facts.length)];
-      } else {
-        return _balancePrompts[rnd.nextInt(_balancePrompts.length)];
-      }
+      return rnd.nextBool()
+          ? _facts[rnd.nextInt(_facts.length)]
+          : _balancePrompts[rnd.nextInt(_balancePrompts.length)];
     }
     if (_facts.isNotEmpty) return _facts[rnd.nextInt(_facts.length)];
     if (_balancePrompts.isNotEmpty) {
@@ -202,11 +245,13 @@ class _WritePageState extends State<WritePage> {
 
   /// ─────────────────────────────────────────────
   /// “완료” 버튼 눌렀을 때(1) : 모달 띄우고 10초 슬립 후 DetailPage로 이동
-  ///  “완료” 버튼 눌렀을 때(2) : 새 작성인지 수정인지 분기
+  /// “완료” 버튼 눌렀을 때(2) : 새 작성인지 수정인지 분기
   Future<void> _onSubmit() async {
+    final prefs = await SharedPreferences.getInstance();
+    final String? userId = prefs.getString('userId');
+
     final prompt = _randomPrompt;
     // 1) 모달 띄우기
-    // 모드에 따라 다르게 처리: 수정이면 postContents[idx] 갱신, 신규면 append
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -214,45 +259,70 @@ class _WritePageState extends State<WritePage> {
     );
     // 2) 10초 기다림 (프로토타입)
     await Future.delayed(const Duration(seconds: 10));
-    // 3) 닫고 메인으로
+    // 3) 모달 닫기
     Navigator.of(context).pop();
 
     final now = DateTime.now();
     int rewardGiven = 0;
 
     if (_isEditMode) {
-      // 1) 수정 모드 : 기존 리스트에 덮어쓰기
+      // ── 수정 모드 로직 ──
       final idx = widget.editIdx!;
       postContents[idx] = _contentCtrl.text.trim();
       postStyles[idx] = _selectedStyle;
       postImages[idx] = _image ?? XFile('');
-      // 작성 시간은 그대로 두거나, 원한다면 다음 줄처럼 변경할 수도 있음
-      // postDateTimes[idx] = now;
-
-      // “수정 완료” 시점에 SharedPreferences에 lastEditDate 기록
-      final prefs = await SharedPreferences.getInstance();
+      // 필요하다면 postDateTimes[idx] = now;
       final todayKey = now.toIso8601String().split('T')[0];
       await prefs.setString('lastEditDate', todayKey);
     } else {
-      // 신규 모드: 기존 로직대로 append
+      // ── 신규 모드 로직 ──
       postImages.add(_image ?? XFile(''));
       postContents.add(_contentCtrl.text.trim());
       postDateTimes.add(now);
       postStyles.add(_selectedStyle);
 
       // 신규 작성이기 때문에 하루 1회 30크레딧 지급
-      final prefs = await SharedPreferences.getInstance();
-      final todayKey = DateTime.now().toIso8601String().split('T')[0];
+      final todayKey = now.toIso8601String().split('T')[0];
       final lastGiven = prefs.getString('lastDiaryCreditDate') ?? '';
       if (lastGiven != todayKey) {
+        // 1) 로컬 SharedPreferences 크레딧 업데이트
         final prevCredit = prefs.getInt('userCredit') ?? 0;
         await prefs.setInt('userCredit', prevCredit + 30);
         await prefs.setString('lastDiaryCreditDate', todayKey);
         rewardGiven = 30;
+
+        // 2) 서버에도 크레딧 +30 반영
+        if (userId != null && rewardGiven > 0) {
+          final url = Uri.parse('$_baseUrl/api/users/$userId/credit');
+          try {
+            final response = await http.post(
+              url,
+              headers: {
+                'Content-Type': 'application/json',
+                // 인증 토큰이 필요하면 여기에 추가:
+                // 'Authorization': 'Bearer ${prefs.getString('accessToken')}',
+              },
+              body: jsonEncode({'amount': rewardGiven}),
+            );
+
+            if (response.statusCode == 200) {
+              final body = jsonDecode(response.body);
+              final updatedCredit = body['credit'] as int;
+              print('서버에서 갱신된 크레딧: $updatedCredit');
+              // 서버에서 받아온 최종 credit으로 로컬에도 덮어써 두면 동기화가 됩니다.
+              await prefs.setInt('userCredit', updatedCredit);
+            } else {
+              print(
+                  '크레딧 갱신 실패 (HTTP ${response.statusCode}): ${response.body}');
+            }
+          } catch (e) {
+            print('크레딧 갱신 중 오류: $e');
+          }
+        }
       }
     }
 
-    // 완료 후 상세 페이지로 이동 (수정 모드면 같은 idx, 신규면 새 idx)
+    // ── 완료 후 DetailPage로 이동 ──
     final gotoIdx = _isEditMode ? widget.editIdx! : postContents.length - 1;
     Navigator.pushReplacement(
       context,
@@ -262,6 +332,7 @@ class _WritePageState extends State<WritePage> {
           arguments: {
             'idx': gotoIdx,
             'reward': rewardGiven, // 하루 1회 30 크레딧
+            'source': 'home',
           },
         ),
       ),
@@ -272,8 +343,10 @@ class _WritePageState extends State<WritePage> {
   Future<bool> _onWillPop() async {
     if (_isEditMode) {
       // 수정 모드라면, 다이얼로그 띄우기
-      final shouldCancel =
-          await WriteAlertDialogs.showCancelEditDialog(context,widget.editIdx!,);
+      final shouldCancel = await WriteAlertDialogs.showCancelEditDialog(
+        context,
+        widget.editIdx!,
+      );
       return shouldCancel; // true면 Pop 허용, false면 Pop 차단
     }
     // 신규 작성 모드라면 그냥 Pop
@@ -297,14 +370,17 @@ class _WritePageState extends State<WritePage> {
           // 아이콘 두 개 공간 확보
           leading: Row(
             children: [
-              // 보유 아이템 개수
+              // 보유 아이템 개수 (서버 동기화된 _correctionTapeCount, _diaryCount)
               const SizedBox(width: 12), // 좌측 여백
               ItemCountIcon(
-                  imagePath: 'assets/items/correction tape.png',
-                  count: _correctionTapeCount),
+                imagePath: 'assets/items/correction tape.png',
+                count: _correctionTapeCount,
+              ),
               const SizedBox(width: 8),
               ItemCountIcon(
-                  imagePath: 'assets/items/diary.png', count: _diaryCount),
+                imagePath: 'assets/items/diary.png',
+                count: _diaryCount,
+              ),
             ],
           ),
           title: const Text('새 일기 쓰기'),
@@ -346,7 +422,6 @@ class _WritePageState extends State<WritePage> {
                             height: 30,
                           ),
                           const SizedBox(width: 0),
-
                           TextButton(
                             onPressed: (_hasWrittenToday || _isLoadingQuestion)
                                 ? null
@@ -360,15 +435,11 @@ class _WritePageState extends State<WritePage> {
                               ),
                             ),
                           ),
-
-                          // 로딩 중일 때만 점프 애니메이션 노출
                           if (_isLoadingQuestion) ...[
                             const SizedBox(width: 0),
-
-                            // AnimatedSmoothIndicator 사용
                             SizedBox(
-                              width: 20,   // dotWidth*3 + spacing*2 정도 크기
-                              height: 12,  // dotHeight 정도 높이
+                              width: 20, // dotWidth*3 + spacing*2 정도 크기
+                              height: 12, // dotHeight 정도 높이
                               child: AnimatedSmoothIndicator(
                                 activeIndex: _loadingDotIndex,
                                 count: 3,
@@ -386,10 +457,7 @@ class _WritePageState extends State<WritePage> {
                           ],
                         ],
                       ),
-
                       const SizedBox(height: 0),
-
-                      // 로딩 끝난 뒤 질문 표시
                       if (!_isLoadingQuestion && _questionText != null) ...[
                         Padding(
                           padding: const EdgeInsets.symmetric(
@@ -405,9 +473,8 @@ class _WritePageState extends State<WritePage> {
                     ],
                   ),
 
-
                   /// ─────────────────────────────────────────────
-                  // 텍스트 입력박스 + + 잠금해제 버튼
+                  // 텍스트 입력박스 + 잠금해제 버튼
                   Container(
                     height: 350,
                     decoration: BoxDecoration(
@@ -447,44 +514,32 @@ class _WritePageState extends State<WritePage> {
                             filled: true,
                             counterText: '',
                             contentPadding: const EdgeInsets.all(12),
-
-                            /// ─────────────────────────────────────────────
-                            // 포커스가 없을 때 테두리
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(7),
                               borderSide: const BorderSide(
-                                color: Colors.white, //<— 비활성 상태 테두리 색
+                                color: Colors.white,
                                 width: 1,
                               ),
                             ),
-
-                            /// ─────────────────────────────────────────────
-                            // 포커스 받았을 때 테두리
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(7),
                               borderSide: const BorderSide(
-                                color: Color(0xFFD3D3D3), //<— 포커스 상태 테두리 색
+                                color: Color(0xFFD3D3D3),
                                 width: 2,
                               ),
                             ),
-
-                            /// ─────────────────────────────────────────────
                           ),
                         ),
-
-                        // 잠금된 상태일 때만 보여주는 ‘+잠금해제’ 버튼
                         if (_hasWrittenToday)
                           Center(
                             child: ElevatedButton.icon(
                               icon: const Icon(Icons.lock_open),
                               label: const Text('+ 잠금해제'),
                               onPressed: () {
-                                // 분리된 다이얼로그 메서드 호출
                                 UnlockDialogs.showUnlockDiaryDialog(
                                   context: context,
                                   currentDiaryCount: _diaryCount,
                                   onUnlocked: () {
-                                    // 잠금 해제되면 _hasWrittenToday = false 처리
                                     setState(() {
                                       _hasWrittenToday = false;
                                     });
@@ -545,17 +600,10 @@ class _WritePageState extends State<WritePage> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.start,
                     children: [
-                      // _buildRadio('애니', _selectedStyle, (v) {
-                      //   setState(() => _selectedStyle = v!);
-                      // }),
                       const SizedBox(width: 10),
                       _buildRadio('캐릭터', _selectedStyle, (v) {
                         setState(() => _selectedStyle = v!);
                       }),
-                      // const SizedBox(width: 5),
-                      // _buildRadio('수채화', _selectedStyle, (v) {
-                      //   setState(() => _selectedStyle = v!);
-                      // }),
                       const SizedBox(width: 10),
                       _buildRadio('일러스트', _selectedStyle, (v) {
                         setState(() => _selectedStyle = v!);
@@ -570,26 +618,21 @@ class _WritePageState extends State<WritePage> {
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
                       TextButton(
-                        // 완료 버튼 동작 구현
                         onPressed: _hasWrittenToday
                             ? null
                             : () async {
-                                // 1) 내용 가져와서 앞뒤 공백 제거
                                 final content = _contentCtrl.text.trim();
-                                // 2) 비어있거나 100자 미만이면 경고
                                 if (content.isEmpty || content.length < 100) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     const SnackBar(
                                       content: Text('일기를 최소 100자 이상 입력해주세요.'),
                                     ),
                                   );
-                                  return; // 밑의 _onSubmit 호출 안 함
+                                  return;
                                 }
-                                // 1) 오토툰 생성 확인
                                 final ok =
                                     await showCreateConfirmDialog(context);
                                 if (!ok) {
-                                  // 확인을 못받았을 때: 오류 다이얼로그 띄우기
                                   await showDialog(
                                     context: context,
                                     builder: (_) => AlertDialog(
@@ -597,15 +640,15 @@ class _WritePageState extends State<WritePage> {
                                       content: const Text('잠시 후 다시 시도해주세요.'),
                                       actions: [
                                         TextButton(
-                                          onPressed: () => Navigator.of(context).pop(),
+                                          onPressed: () =>
+                                              Navigator.of(context).pop(),
                                           child: const Text('확인'),
                                         ),
                                       ],
                                     ),
                                   );
-                                  return; // _onSubmit 호출하지 않고 함수 종료
+                                  return;
                                 }
-                                // 2) 확인 받았으면 원래 로딩/이동 로직 실행
                                 await _onSubmit();
                               },
                         child: const Text(
@@ -621,7 +664,6 @@ class _WritePageState extends State<WritePage> {
                   ),
 
                   /// ─────────────────────────────────────────────
-                  // 안내 텍스트
                   const SizedBox(height: 10),
                   const Text(
                     '일기 생성은 2-3분 정도 소요될 수 있어요:D',

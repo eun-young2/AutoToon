@@ -1,13 +1,27 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<queries>
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="http"/>
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="https"/>
+        </intent>
+    </queries>
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <uses-permission android:name="android.permission.INTERNET"/>
     <application
         android:label="frontend"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
-        android:requestLegacyExternalStorage="true">
+        android:requestLegacyExternalStorage="true"
+        android:usesCleartextTraffic="true"
+        android:enableOnBackInvokedCallback="true"
+        >
 
         <activity
             android:name=".MainActivity"
@@ -30,6 +44,45 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
+
+             <!-- 딥링크용 intent-filter: app_links 방식 -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+
+                <!-- 
+                    1) 스킴은 자유롭게 정할 수 있습니다. 
+                       예: "autotoon" (카카오 로그인 콜백) 
+                    2) 호스트는 FastAPI redirect URI와 일치해야 합니다. 
+                       FastAPI에서 redirect URI를 
+                       http://10.0.2.2:8000/auth/kakao/callback 으로 설정했으므로 
+                       scheme="http", host="10.0.2.2", port="8000", pathPrefix="/auth/kakao/callback"
+                -->
+                <data
+                    android:scheme="http"
+                    android:host="211.188.62.213"
+                    android:port="8000"
+                    android:pathPrefix="/auth/kakao/callback" />
+
+            </intent-filter>
+
+            <!-- ───────────────────────────────────────────────────
+                 (C) Custom Scheme 딥링크 처리 필터
+                 → FastAPI가 리턴하는 autotoon://login-success?nickname=…&token=…
+            ─────────────────────────────────────────────────── -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+
+                <!-- 아래 두 속성을 반드시 맞춰 주세요 -->
+                <data
+                    android:scheme="autotoon"
+                    android:host="login-success" />
+            </intent-filter>
+        
+    
         </activity>
 
         <!-- ✅ 카카오 로그인 Redirect URI 처리를 위한 액티비티 추가 -->

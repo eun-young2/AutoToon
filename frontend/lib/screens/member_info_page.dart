@@ -1,4 +1,7 @@
 import 'dart:io';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:dx_project_dev2/widgets/modal.dart';
@@ -22,11 +25,11 @@ class _MemberInfoPageState extends State<MemberInfoPage> {
   // 변하지 않는 회원 정보 (카카오톡에서 받아온 정보라고 가정)
   final ImagePicker _picker = ImagePicker();
   XFile? _imageFile;
-  String _nickname = 'Faker';
-  final String _name = '이상혁';
-  final String _phoneNumber = '010-1234-5678';
-  final String _gender = '남성';
-  final String _ageGroup = '30대';
+  String _nickname = '로딩중...';
+  String _name = '';
+  final String _phoneNumber = '010-1234-5678'; // 필요 시 API로 연결
+  String _gender = '로딩중';
+  String _ageGroup = '로딩중';
 
   // 보유 크레딧(차감 가능)
   int _credit = 0;
@@ -35,37 +38,100 @@ class _MemberInfoPageState extends State<MemberInfoPage> {
   int _correctionTapeCount = 0;
   int _diaryCount = 0;
 
+  late final String _baseUrl;
+
   @override
   void initState() {
     super.initState();
     // 화면이 처음 열릴 때 SharedPreferences에서 userCredit을 불러와 _credit에 세팅
-    _loadCreditFromPrefs();
+    _baseUrl = dotenv.env['API_BASE_URL'] ?? "http://211.188.62.213:8000";
+    // 🔹 로컬 캐시 즉시 적용
+    _applyPrefsCache();
+
+    _loadUserInfoFromApi();
+  }
+
+  Future<void> _applyPrefsCache() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _nickname = prefs.getString('userNick') ?? _nickname;
+      _credit = prefs.getInt('userCredit') ?? _credit;
+      _correctionTapeCount = prefs.getInt('correctionTapeCount') ?? 0;
+      _diaryCount = prefs.getInt('diaryCount') ?? 0;
+    });
   }
 
   @override
   void didChangeDependencies() {
-      super.didChangeDependencies();
-      // 다른 화면에서 돌아올 때마다 SharedPreferences에서 userCredit을 다시 읽어 와서 setState
-      _loadCreditFromPrefs();
-    }
+    super.didChangeDependencies();
+    // 다른 화면에서 돌아올 때마다 SharedPreferences에서 userCredit을 다시 읽어 와서 setState
+    _loadUserInfoFromApi();
+  }
 
   /// ──────────────── 크레딧 사용시 저장 ──────────────────────
   /// SharedPreferences에서 userCredit, correctionTapeCount, diaryCount를 모두 불러와서
   /// _credit, _correctionTapeCount, _diaryCount에 세팅
-  Future<void> _loadCreditFromPrefs() async {
+  Future<void> _loadUserInfoFromApi() async {
     final prefs = await SharedPreferences.getInstance();
+    final userId = prefs.getString('userId');
 
-    // 크레딧 로드
-    final savedCredit = prefs.getInt('userCredit') ?? 0;
-    // 아이템 개수 로드
-    final savedTapeCount = prefs.getInt('correctionTapeCount') ?? 0;
-    final savedDiaryCount = prefs.getInt('diaryCount') ?? 0;
+    // userId가 없으면 로그인 페이지로 보내거나 기본값 유지
+    if (userId == null || userId.isEmpty) {
+      print("SharedPreferences에 userId가 없습니다.");
+      return;
+    }
 
-    setState(() {
-      _credit = savedCredit;
-      _correctionTapeCount = savedTapeCount;
-      _diaryCount = savedDiaryCount;
-    });
+    // ─── ① URI 생성: _baseUrl + "/users/$userId"
+    final uri = Uri.parse("$_baseUrl/api/users/$userId");
+    print('GET $uri');
+    try {
+      final response = await http.get(uri);
+
+      if (response.statusCode == 200) {
+        // ─── ② 응답 JSON 파싱
+        final data = jsonDecode(response.body);
+
+        setState(() {
+          // 예시 JSON:
+          // {
+          //   "user_id": "4284707752",
+          //   "user_name": "김찬휘",
+          //   "user_nick": "김찬휘",
+          //   "user_gender": 0,
+          //   "user_age_range": "20~29",
+          //   "created_at": "2025-05-31T06:03:44",
+          //   "credit": 300,
+          //   "correction_tape_item": 0,
+          //   "diary_item": 0
+          // }
+          _nickname = data['user_nick'] ?? data['user_name'] ?? '닉네임 없음';
+          _name = data['user_name'] ?? '';
+
+          final int? genderInt = data['user_gender'];
+          if (genderInt == 0) {
+            _gender = '남성';
+          } else if (genderInt == 1) {
+            _gender = '여성';
+          } else {
+            _gender = '알 수 없음';
+          }
+
+          _ageGroup = data['user_age_range'] ?? '알 수 없음';
+          _credit = data['credit'] ?? 0;
+          _correctionTapeCount = data['correction_tape_item'] ?? 0;
+          _diaryCount = data['diary_item'] ?? 0;
+        });
+
+        // ─── ③ SharedPreferences에도 동기화(옵션)
+        await prefs.setInt('userCredit', _credit);
+        await prefs.setInt('correctionTapeCount', _correctionTapeCount);
+        await prefs.setInt('diaryCount', _diaryCount);
+      } else {
+        print("API 호출 실패: statusCode = ${response.statusCode}");
+      }
+    } catch (e) {
+      print("API 호출 중 에러: $e");
+    }
   }
 
   /// ─────────────────────────────────────────────
@@ -157,19 +223,19 @@ class _MemberInfoPageState extends State<MemberInfoPage> {
                 onDetailTap: _showDetailDialog,
               ),
               const SizedBox(height: 12),
-        
+
               /// ─────────────────────────────────────────────
               /// 크레딧·성별·나이대
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
                   CreditBox(credit: _credit),
-                  const InfoBox(title: '성별', value: '남성'),
-                  const InfoBox(title: '나이대', value: '30대'),
+                  InfoBox(title: '성별', value: _gender),
+                  InfoBox(title: '나이대', value: _ageGroup),
                 ],
               ),
               const Divider(height: 32),
-        
+
               /// ─────────────────────────────────────────────
               // 아이템 목록
               const Text('아이템',
@@ -203,7 +269,7 @@ class _MemberInfoPageState extends State<MemberInfoPage> {
                 ],
               ),
               const SizedBox(height: 24),
-        
+
               /// ─────────────────────────────────────────────
               // 감정 테마 선택
               // ───────────── 감정 오브제 ─────────────
@@ -250,7 +316,7 @@ class _MemberInfoPageState extends State<MemberInfoPage> {
                         ],
                       ),
                       const SizedBox(height: 24),
-        
+
                       /// ─────────────────────────────────────────────
                     ],
                   ),
@@ -270,7 +336,7 @@ class _MemberInfoPageState extends State<MemberInfoPage> {
     required String title,
     required String description,
     required int price,
-  }) async{
+  }) async {
     AlertDialogs.showItemDialog(
       context: context,
       imagePath: imagePath,
@@ -292,7 +358,51 @@ class _MemberInfoPageState extends State<MemberInfoPage> {
           await prefs.setInt('correctionTapeCount', _correctionTapeCount);
           await prefs.setInt('diaryCount', _diaryCount);
 
-          // 3) 다이얼로그 닫고, 완료 메시지
+          // 3) 백엔드 API 호출: credit, correction_tape_item 또는 diary_item 필드 동기화
+          final userId = prefs.getString('userId');
+          if (userId != null && userId.isNotEmpty) {
+            final baseUrl =
+                dotenv.env['API_BASE_URL'] ?? 'http://10.0.2.2:8000';
+            final uri = Uri.parse('$baseUrl/api/users/$userId');
+
+            // 전송할 JSON 바디 구성
+            final Map<String, dynamic> body = {
+              'credit': _credit,
+            };
+            if (title == '수정테이프') {
+              body['correction_tape_item'] = _correctionTapeCount;
+            }
+            if (title == '일기장') {
+              body['diary_item'] = _diaryCount;
+            }
+
+            try {
+              final response = await http.patch(
+                uri,
+                headers: {
+                  'Content-Type': 'application/json',
+                  // 필요하다면 인증 헤더 추가:
+                  // 'Authorization': 'Bearer ${prefs.getString('accessToken')}',
+                },
+                body: jsonEncode(body),
+              );
+
+              if (response.statusCode == 200) {
+                // 서버에서 갱신된 User 데이터를 JSON으로 받았다면
+                final updatedData = jsonDecode(response.body);
+                // (선택) 서버가 돌려준 크레딧 등을 화면에 재반영하고 싶다면 이곳에 setState
+                // 예: setState(() { _credit = updatedData['credit']; ... });
+                print('서버 반영 완료: $updatedData');
+              } else {
+                print(
+                    '서버 반영 실패 (HTTP ${response.statusCode}): ${response.body}');
+              }
+            } catch (e) {
+              print('서버 호출 중 오류: $e');
+            }
+          }
+
+          // 4) 다이얼로그 닫고, 완료 메시지
           Navigator.pop(context);
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('$title 구매 완료!')),

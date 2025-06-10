@@ -8,6 +8,9 @@ import 'package:dx_project_dev2/screens/write_page.dart'
     show WritePage, postContents, postDateTimes, postImages, postStyles;
 import '../widgets/double_back_to_exit.dart';
 import 'package:dx_project_dev2/utils/image_store.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 /// ─────────────────────────────────────────────
 class DetailPage extends StatefulWidget {
@@ -27,19 +30,21 @@ class _DetailPageState extends State<DetailPage> {
   void _popToSource(String source) {
     switch (source) {
       case 'home':
-      // 홈 화면으로 돌아가기
+        // 홈 화면으로 돌아가기
         Navigator.pushNamedAndRemoveUntil(context, '/main', (route) => false);
         break;
       case 'calendar':
-      // 캘린더로 돌아가기
-        Navigator.pushNamedAndRemoveUntil(context, '/calendar', (route) => false);
+        // 캘린더로 돌아가기
+        Navigator.pushNamedAndRemoveUntil(
+            context, '/calendar', (route) => false);
         break;
       case 'history':
-      // 히스토리로 돌아가기
-        Navigator.pushNamedAndRemoveUntil(context, '/history', (route) => false);
+        // 히스토리로 돌아가기
+        Navigator.pushNamedAndRemoveUntil(
+            context, '/history', (route) => false);
         break;
       default:
-      // 그 외에 안전하게 홈으로
+        // 그 외에 안전하게 홈으로
         Navigator.pushNamedAndRemoveUntil(context, '/main', (route) => false);
     }
   }
@@ -48,38 +53,118 @@ class _DetailPageState extends State<DetailPage> {
   /// “수정하기” 선택 시 호출되는 메서드
   void _editPost(int idx) async {
     final prefs = await SharedPreferences.getInstance();
-
-    // 1) SharedPreferences에서 lastEditDate를 가져와서 오늘 키와 비교
-    final storedDate = prefs.getString('lastEditDate');
     final todayKey = DateTime.now().toIso8601String().split('T')[0];
+    final userId = prefs.getString('userId');
 
-    // 2) 만약 storedDate == todayKey → 이미 오늘 수정한 상태
+    if (userId == null || userId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('로그인이 필요합니다.')),
+      );
+      return;
+    }
+
+    // 1) 서버에서 최신 사용자의 correction_tape_item 값을 조회
+    final baseUrl = dotenv.env['API_BASE_URL'] ?? 'http://211.188.62.213:8000';
+    final getUri = Uri.parse('$baseUrl/api/users/$userId');
+    int serverTapeCount = 0;
+
+    try {
+      final getResponse = await http.get(getUri);
+      if (getResponse.statusCode == 200) {
+        final data = jsonDecode(getResponse.body);
+        serverTapeCount = data['correction_tape_item'] ?? 0;
+      } else {
+        print(
+          '수정테이프 조회 실패 (HTTP ${getResponse.statusCode}): ${getResponse.body}',
+        );
+        // 서버 오류이므로 안전하게 원래 WritePage로 바로 이동하거나 멈춤
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('서버에서 사용자 정보를 가져오지 못했습니다.')),
+        );
+        return;
+      }
+    } catch (e) {
+      print('서버 호출 중 오류(조회): $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('네트워크 오류가 발생했습니다.')),
+      );
+      return;
+    }
+
+    // 2) SharedPreferences에 저장된 lastEditDate 확인
+    final storedDate = prefs.getString('lastEditDate');
+
     if (storedDate == todayKey) {
-      // 이미 오늘 수정함 → 수정테이프 사용 다이얼로그 띄우기
+      // 오늘 이미 수정한 상태이므로, 수정테이프 사용 대화상자
       WriteLockDialogs.showUnlockEditDialog(
         context: context,
-        onUnlock: () {
-          // 수정 잠금 해제 후: 진짜 수정 페이지로 이동
+        onUnlock: () async {
+          // 3) 서버에서 받아온 serverTapeCount 가 0 이하인지 확인
+          if (serverTapeCount <= 0) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('수정테이프가 부족합니다.')),
+            );
+            return;
+          }
+
+          // 4) newCount = serverTapeCount - 1
+          final newCount = serverTapeCount - 1;
+
+          // 5) 로컬 SharedPreferences에도 차감된 값 저장
+          await prefs.setInt('correctionTapeCount', newCount);
+
+          // 6) 서버에 PATCH 요청: correction_tape_item = newCount
+          final patchUri = Uri.parse('$baseUrl/api/users/$userId');
+          try {
+            final patchResponse = await http.patch(
+              patchUri,
+              headers: {
+                'Content-Type': 'application/json',
+                // 인증 헤더가 있다면 여기에 추가
+              },
+              body: jsonEncode({'correction_tape_item': newCount}),
+            );
+            if (patchResponse.statusCode == 200) {
+              print('서버에 수정테이프 차감 완료: $newCount');
+            } else {
+              print(
+                '서버 수정테이프 차감 실패 (HTTP ${patchResponse.statusCode}): ${patchResponse.body}',
+              );
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('서버 업데이트가 실패했습니다.')),
+              );
+              return;
+            }
+          } catch (e) {
+            print('서버 호출 중 오류(차감): $e');
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('네트워크 오류가 발생했습니다.')),
+            );
+            return;
+          }
+
+          // 7) 오늘 마지막 수정 날짜를 저장
+          await prefs.setString('lastEditDate', todayKey);
+
+          // 8) 진짜 수정 화면으로 이동
           Navigator.push(
             context,
             MaterialPageRoute(
               builder: (_) => WritePage(editIdx: idx),
             ),
           ).then((_) {
-            // 수정 후 돌아왔을 때 화면 갱신
-            setState(() {});
+            setState(() {}); // 돌아왔을 때 화면 갱신
           });
         },
       );
     } else {
-      // 3) 오늘 아직 수정 안 한 상태 → 바로 WritePage(editIdx)로 이동
+      // 오늘 한 번도 수정 안 했으면 바로 수정 화면으로 이동
       Navigator.push(
         context,
         MaterialPageRoute(
           builder: (_) => WritePage(editIdx: idx),
         ),
       ).then((_) {
-        // 수정 완료 후 돌아왔을 때 화면 갱신
         setState(() {});
       });
     }
@@ -92,10 +177,13 @@ class _DetailPageState extends State<DetailPage> {
 
   /// 하드웨어 백버튼(시스템 뒤로가기) 콜백
   Future<bool> _onWillPop(String source) async {
-    // 1) 스택에서 제일 처음(HomePage)이 나오도록 popUntil
-    _popToSource(source);
-    // 2) false를 반환해서 시스템 종료를 막음
-    return false;
+    final validRoutes = ['main', 'calendar', 'history'];
+    final route = validRoutes.contains(source) ? '/$source' : '/main';
+
+    // 기존 popAndPushNamed 대신 pushReplacementNamed 또는 pushNamedAndRemoveUntil 사용
+    Navigator.pushReplacementNamed(context, route);
+
+    return true; // ✅ 시스템 pop 허용하여 화면 전환 정상 처리
   }
 
   /// ───────────────── UI ──────────────────────
@@ -103,7 +191,7 @@ class _DetailPageState extends State<DetailPage> {
   Widget build(BuildContext context) {
     final args = ModalRoute.of(context)!.settings.arguments;
 
-    // arguments로 Map을 받음: {'idx': int, 'reward': bool}ㄷㄴ메
+    // arguments로 Map을 받음: {'idx': int, 'reward': bool}
     if (args is! Map) {
       // 올바른 인덱스가 안 넘어왔을 때
       return const Scaffold(
@@ -125,7 +213,13 @@ class _DetailPageState extends State<DetailPage> {
             automaticallyImplyLeading: false,
             leading: IconButton(
               icon: const Icon(Icons.arrow_back),
-              onPressed: () => _popToSource(source),
+              onPressed: () {
+                final validRoutes = ['main', 'calendar', 'history'];
+                final route =
+                    validRoutes.contains(source) ? '/$source' : '/main';
+
+                Navigator.pushReplacementNamed(context, route);
+              },
             ),
             iconTheme: const IconThemeData(color: Colors.black),
           ),
@@ -173,7 +267,13 @@ class _DetailPageState extends State<DetailPage> {
             automaticallyImplyLeading: false,
             leading: IconButton(
               icon: const Icon(Icons.arrow_back),
-              onPressed: () => _popToSource(source),
+              onPressed: () {
+                final validRoutes = ['main', 'calendar', 'history'];
+                final route =
+                    validRoutes.contains(source) ? '/$source' : '/main';
+
+                Navigator.pushReplacementNamed(context, route);
+              },
             ),
             iconTheme: const IconThemeData(color: Colors.black),
           ),
@@ -198,7 +298,12 @@ class _DetailPageState extends State<DetailPage> {
           automaticallyImplyLeading: false,
           leading: IconButton(
             icon: const Icon(Icons.arrow_back),
-            onPressed: () => _popToSource(source),
+            onPressed: () {
+              final validRoutes = ['main', 'calendar', 'history'];
+              final route = validRoutes.contains(source) ? '/$source' : '/main';
+
+              Navigator.pushReplacementNamed(context, route);
+            },
           ),
           iconTheme: const IconThemeData(color: Colors.black),
         ),

@@ -3,8 +3,8 @@ from datetime import date, timedelta
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from fastapi import HTTPException
-from models.attendance import Attendance
-from models.user import User
+from backend.models.attendance import Attendance
+from backend.models.user import User
 
 def check_and_reward_attendance(user_id: str, db: Session):
     """

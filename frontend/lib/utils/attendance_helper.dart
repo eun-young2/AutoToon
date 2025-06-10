@@ -3,6 +3,9 @@ import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../widgets/home_pill_banner.dart';
 import '../widgets/modal.dart'; // AttendanceModal import
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+
 ///──────────────────────────────────────────
 // 리워드 관련해서는 여기에 다 넣어놓겠습니다.
 ///──────────────────────────────────────────
@@ -11,92 +14,62 @@ class AttendanceHelper {
   /// 1) 처음 로그인 시 환영 모달 띄우고 300 크레딧 적립
   /// 2) 오늘 처음 접속 시 AttendanceModal
   /// 3) 오늘 이미 출석했으면 PillBanner
-  static Future<void> checkAttendance(BuildContext context) async {
-    print('출첵 디버그 시작: ${DateTime.now()}');
-    final prefs = await SharedPreferences.getInstance();
-    print('출첵 인스턴스 획득');
+  static const String _baseUrl = "http://211.188.62.213:8000";
+  static Future<void> checkAttendance(
+    BuildContext context,
+    String userId, // 로그인 완료 후 로컬 또는 Provider 등에 저장해둔 userId를 넘겨주세요
+  ) async {
+    try {
+      // 1) FastAPI 서버의 /attendance/check/{userId} 엔드포인트에 POST 요청을 보냅니다.
+      final uri = Uri.parse("$_baseUrl/attendance/check/$userId");
+      final response = await http.post(uri);
 
-    // ── 1) “첫 로그인” 여부 검사 ──
-    // hasSeenWelcome 키가 없으면(=처음 로그인) 환영 모달 띄우고 300 크레딧 지급
-    final hasSeenWelcome = prefs.getBool('hasSeenWelcome') ?? false;
-    if (!hasSeenWelcome) {
-      // 1-1) SharedPreferences에 표시해 두기
-      await prefs.setBool('hasSeenWelcome', true);
+      if (response.statusCode != 200) {
+        // 500, 404 등 오류가 날 경우 예외 처리
+        debugPrint("출석 체크 API 오류: ${response.statusCode} / ${response.body}");
+        // 사용자에게 간단히 토스트나 다이얼로그를 띄우고 싶으면 여기에 추가하세요.
+        return;
+      }
 
-      // 1-2) 첫 로그인 시 사용자 크레딧을 300으로 세팅
-      //     → 이미 어떤 초기값이 들어가 있다면 그대로 두거나, 강제로 300으로 덮어쓰세요.
-      //     아래는 “기존 크레딧이 있더라도 300으로 설정”하는 예시입니다.
-      await prefs.setInt('userCredit', 300);
+      // 2) 서버로부터 받은 JSON을 파싱합니다.
+      final Map<String, dynamic> data = json.decode(response.body);
 
-      // 1-3) 환영 모달 띄우기
-      await showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (_) => const WelcomeModal(),
-      );
-      // → 여기서 사용자가 “확인했어요”를 누를 때까지 대기했다가 다음 로직으로 넘어갑니다.
-    }
+      // 서버 응답 예시:
+      // {
+      //   "is_new_attendance": true,
+      //   "streak": 3,
+      //   "reward": 10,
+      //   "total_days": 7,
+      //   "current_credit": 415
+      // }
+      final bool isNew = data["is_new_attendance"] as bool;
+      final int streak = data["streak"] as int;
+      final int reward = data["reward"] as int;
+      final int totalDays = data["total_days"] as int;
+      final int currentCredit = data["current_credit"] as int;
 
-    // ── 2) 기존 출석 체크 로직 ──
-
-    // 오늘 날짜 키 (yyyy-MM-dd 형식)
-    final todayKey = DateFormat('yyyy-MM-dd').format(DateTime.now());
-
-    // SharedPreferences에서 마지막 출석 날짜, 연속 출석일, 총 누적 일수 가져오기
-    final lastDateKey = prefs.getString('lastAttendanceDate');
-    int streak = prefs.getInt('attendanceStreak') ?? 0;
-    int totalDays = prefs.getInt('attendanceTotalDays') ?? 0;
-
-    if (lastDateKey != todayKey) {
-      // "어제" 날짜 키
-      final yesterdayKey = DateFormat('yyyy-MM-dd')
-          .format(DateTime.now().subtract(const Duration(days: 1)));
-
-      // 어제 출석했으면 연속 출석 카운트 +1, 아니면 1로 리셋
-      if (lastDateKey == yesterdayKey) {
-        streak += 1;
+      // 3) 서버에서 “처음 출석”이라고 내려오면 모달을 띄우고
+      if (isNew) {
+        await showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (_) => AttendanceModal(
+            totalDays: totalDays,
+            reward: reward,
+          ),
+        );
       } else {
-        streak = 1;
+        // 4) 이미 오늘 출석했으면 배너를 띄웁니다.
+        _showTopBanner(context, "연속 방문 ${streak}일차");
       }
 
-      // 총 누적 출석 일수 증가
-      totalDays += 1;
-
-      // 오늘의 보상 크레딧 계산
-      int reward = 10;
-      if (streak == 5) {
-        reward = 30;
-      } else if (streak == 15) {
-        reward = 60;
-      } else if (streak == 30) {
-        reward = 90;
-      }
-
-      // SharedPreferences에 업데이트
-      await prefs.setString('lastAttendanceDate', todayKey);
-      await prefs.setInt('attendanceStreak', streak);
-      await prefs.setInt('attendanceTotalDays', totalDays);
-
-      // 사용자 크레딧에 보상 크레딧 추가
-      final currentCredit = prefs.getInt('userCredit') ?? 0;
-      await prefs.setInt('userCredit', currentCredit + reward);
-
-      // 모달 띄우기
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (_) => AttendanceModal(
-          totalDays: totalDays,
-          reward: reward,
-        ),
-      );
-    } else {
-      // SharedPreferences에 이미 저장된 streak 값 가져오기
-      final currentStreak = streak;
-      print('출첵: 오늘 이미 출석함. 현재 연속 방문 $currentStreak 일차');
-
-      // 아래 _showTopBanner 코드를 그대로 호출
-      _showTopBanner(context, '연속 방문 ${currentStreak}일차');
+      // 5) 마이페이지 등에서 보여줄 크레딧(currentCredit)은 서버 응답을 그대로 사용하세요.
+      //    예를 들어 Provider나 setState 등을 통해 화면 상단에 크레딧을 갱신해 줄 수 있습니다.
+      debugPrint("서버에서 갱신된 크레딧: $currentCredit");
+    } catch (e) {
+      // 네트워크 에러 또는 파싱 에러 등 예외 처리
+      debugPrint("출석 체크 중 에러 발생: $e");
+      // 원한다면 사용자에게 에러 다이얼로그나 SnackBar를 띄워줄 수 있습니다.
     }
   }
 

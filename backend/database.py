@@ -8,7 +8,7 @@ from fastapi import Depends
 from pathlib import Path
 
 # .env 파일에서 환경변수 불러오기
-load_dotenv()
+load_dotenv(Path('backend/.env'))
 
 # 환경변수에서 DB 접속 정보 읽기
 DB_USER     = os.getenv("DB_USER")  

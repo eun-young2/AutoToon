@@ -355,7 +355,8 @@ class AlertDialogs {
                         ),
                         ElevatedButton(
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFFD6C7A6), // 기존 배경색 유지
+                            backgroundColor:
+                                const Color(0xFFD6C7A6), // 기존 배경색 유지
                             foregroundColor: Colors.black, // 텍스트 색상을 검정으로
                           ),
                           onPressed: () => Navigator.of(ctx).pop(true),
@@ -369,7 +370,8 @@ class AlertDialogs {
                 if (shouldLogout == true) {
                   // 예를 들어: await KakaoSdk.instance.logout();
                   // TODO: 카카오톡 API에서 실제 로그아웃 처리 코드를 여기에 넣으세요
-
+                  final prefs = await SharedPreferences.getInstance();
+                  await prefs.clear();
                   // Intro 페이지로 이동 (기존 스택 모두 제거)
                   Navigator.of(context).pushNamedAndRemoveUntil(
                     '/intro',
@@ -527,11 +529,13 @@ class StyleInfoDialog extends StatelessWidget {
               SizedBox(
                 height: 280, // 원하는 크기로 조절하세요
                 child: Center(
-                  child: _StyleItem(label: '캐릭터',
+                  child: _StyleItem(
+                    label: '캐릭터',
                     imagePaths: const [
                       'assets/example/캐릭터_남.png',
                       'assets/example/캐릭터_여.png',
-                    ],),
+                    ],
+                  ),
                 ),
               ),
               const SizedBox(height: 12),
@@ -540,11 +544,13 @@ class StyleInfoDialog extends StatelessWidget {
               SizedBox(
                 height: 250, // 원하는 크기로 조절하세요
                 child: Center(
-                  child: _StyleItem(label: '일러스트',
+                  child: _StyleItem(
+                    label: '일러스트',
                     imagePaths: const [
                       'assets/example/일러스트_남.png',
                       'assets/example/일러스트_여.png',
-                    ],),
+                    ],
+                  ),
                 ),
               ),
 
@@ -623,7 +629,7 @@ class _StyleItem extends StatelessWidget {
               ),
             ],
           ),
-      ),
+        ),
         const SizedBox(height: 8),
         // 2) 레이블을 가운데 정렬
         Text(
@@ -872,9 +878,9 @@ class WriteAlertDialogs {
   ///
   /// 반환값: 사용자가 “예”를 누르면 true, “아니요”를 누르면 false.
   static Future<bool> showCancelEditDialog(
-      BuildContext context,
-      int idx, // 수정 중이던 게시물의 인덱스를 파라미터로 받습니다
-      ) async {
+    BuildContext context,
+    int idx, // 수정 중이던 게시물의 인덱스를 파라미터로 받습니다
+  ) async {
     final result = await showDialog<bool>(
       context: context,
       barrierDismissible: false, // 외부 터치 시 닫기 방지
@@ -901,7 +907,7 @@ class WriteAlertDialogs {
                 context,
                 '/detail', // 라우트에 등록된 DetailPage
                 arguments: {
-                  'idx': idx,     // 전달받은 인덱스를 그대로 사용
+                  'idx': idx, // 전달받은 인덱스를 그대로 사용
                   'reward': 0,
                 },
               );

@@ -1,6 +1,7 @@
 from fastapi import FastAPI, HTTPException, Depends, Request, status
 from fastapi.responses import RedirectResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 import httpx
 import os
 from pathlib import Path

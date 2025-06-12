@@ -381,15 +381,20 @@ async def create_diary_with_tmi_stream(
             await asyncio.sleep(10)
 
         # 5-4) 이미지 생성 완료 시점 → 최종 JSON 전송
-        image_paths: List[str] = await image_task
-        if not image_paths:
-            image_json = {"cut_paths": []}
-        else:
-            image_json = {"cut_paths": image_paths}
+        # image_paths: List[str] = await image_task
+        # if not image_paths:
+        #     image_json = {"cut_paths": []}
+        # else:
+        #     image_json = {"cut_paths": image_paths}
 
-        print(f"[STREAMING INFO] 이미지 생성 완료: {image_paths}", flush=True)
-        # yield f"event: image_done\ndata: {image_json}\n\n"
-        yield f"data: image_done\ndata: {json.dumps(image_json)}\n\n"
+        # print(f"[STREAMING INFO] 이미지 생성 완료: {image_paths}", flush=True)
+        # # yield f"event: image_done\ndata: {image_json}\n\n"
+        # yield f"data: image_done\ndata: {json.dumps(image_json)}\n\n"
+        # 이미지 생성이 다 끝났으면, cut_paths 없이 이벤트만 던집니다.
+        await image_task  # (경로 정보가 필요 없으면 그냥 결과를 기다리기만)
+        print(f"[STREAMING INFO] 이미지 생성 완료, 상세페이지로 이동", flush=True)
+        # 이벤트 타입만 날리고 데이터는 보내지 않습니다.
+        yield "event: image_done\n\n"
 
     # ── 6) StreamingResponse 반환 ───────────────────────────────────
     return StreamingResponse(
@@ -1021,14 +1026,19 @@ async def update_diary_with_tmi_stream(
             await asyncio.sleep(10)
 
         # 4) 이미지 생성 완료 시점에 최종 JSON 전송
-        image_paths: List[str] = await image_task
-        if not image_paths:
-            image_json = {"cut_paths": []}
-        else:
-            image_json = {"cut_paths": image_paths}
+        # image_paths: List[str] = await image_task
+        # if not image_paths:
+        #     image_json = {"cut_paths": []}
+        # else:
+        #     image_json = {"cut_paths": image_paths}
 
-        print(f"[STREAMING INFO] 이미지 생성 완료: {image_paths}", flush=True)
-        yield f"data: image_done\ndata: {image_json}\n\n"
+        # print(f"[STREAMING INFO] 이미지 생성 완료: {image_paths}", flush=True)
+        # yield f"data: image_done\ndata: {image_json}\n\n"
+        # 이미지 생성이 다 끝났으면, cut_paths 없이 이벤트만 던집니다.
+        await image_task  # (경로 정보가 필요 없으면 그냥 결과를 기다리기만)
+        print(f"[STREAMING INFO] 이미지 생성 완료, 상세페이지로 이동", flush=True)
+        # 이벤트 타입만 날리고 데이터는 보내지 않습니다.
+        yield "event: image_done\n\n"
 
     # ── 9) StreamingResponse 반환 ───────────────────────────────────
     return StreamingResponse(

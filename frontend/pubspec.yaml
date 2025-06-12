@@ -41,9 +41,15 @@
     image_gallery_saver_plus: ^4.0.1
     permission_handler: ^12.0.0+1
 
-    # 액자 대시보드 어플 바로가기
+    ## 액자 대시보드 어플 바로가기
+    #  디바이스 정보 가져오기(모델명,시스템명 등)
     device_info_plus: ^11.4.0
+    # 설치된 어플정보 가져오기 // 06/12 ++ 추가
+    installed_apps: ^1.6.0
+    # url 연결 시켜주기 // 06/12 ++ 추가
     url_launcher: ^6.3.1
+    # 외부 앱 실행하기 // 06/12 ++ 추가
+    external_app_launcher: ^4.0.3
 
     # 로딩 인디케이터(질문생성 부분)
     smooth_page_indicator: ^1.2.1

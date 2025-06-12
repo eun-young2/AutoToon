@@ -75,7 +75,7 @@ class _IntroPageState extends State<IntroPage>
                         ),
                         const SizedBox(width: 8),
                         Image.asset(
-                          'assets/stamps/stamp_happy2.png',
+                          'assets/stamps/stamp_happy.gif',
                           width: 32,
                           height: 32,
                         ),

@@ -49,12 +49,39 @@
     smooth_page_indicator: ^1.2.1
     
     # 알림 설정 라이브러리
-    #flutter_local_notifications: ^19.2.1
+    flutter_local_notifications: ^19.2.1
+    timezone: ^0.10.1
 
     kakao_flutter_sdk_user: ^1.9.5
     flutter_dotenv: ^5.1.0        # 환경변수 패키지 (.env 사용)
     # uni_links: ^0.5.1
     app_links: ^6.4.0
+
+    # 06/11 ++백그라운드 태스크
+    workmanager: ^0.6.0
+
+    # 06/11 ++앱 아이콘 변경 (🌟필수!🌟pub get 후 콘솔창에 flutter pub run flutter_launcher_icons:main 명령실행)
+    flutter_launcher_icons: ^0.14.3
+    # 06/11 ++앱 로딩창 변경 (🌟필수!🌟pub get 후 콘솔창에 flutter pub run flutter_native_splash:create 명령실행)
+    flutter_native_splash: ^2.4.6
+
+    # 06/11 ++앱 아이콘 설정 (flutter_launcher_icons)
+  flutter_icons:
+    android: true      # Android 아이콘 생성
+    ios: true          # iOS 아이콘 생성
+    image_path: "assets/icon/app_icon.png"  # 아이콘 소스 파일 경로
+  
+    # 06/11 ++앱 로딩창 설정
+  flutter_native_splash:
+    color: "#00C3DB" # 배경색 (Hex 코드)
+    image: assets/icon/app_icon4.png # 스플래시 로고 파일 경로
+    branding_bottom_padding: 24
+    android: true     # Android에 적용
+    ios: true          # iOS에 적용
+    android_12:
+      image: assets/icon/app_icon4.png
+      icon_background_color: "#00C3DB"
+
 
   dev_dependencies:
     flutter_test:
@@ -71,6 +98,7 @@
       - assets/stamps/
       - assets/items/
       - assets/example/
+      - assets/icon/
     fonts:
       - family: 온글잎 혜련
         fonts:

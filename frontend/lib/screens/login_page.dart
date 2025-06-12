@@ -165,17 +165,30 @@ class _LoginPageState extends State<LoginPage> {
           children: [
             // ────────────────────────────────────────────────────────────────────────
             // 상단 스페이서
-            const SizedBox(height: 40),
+            const SizedBox(height: 8.5),
 
             // ────────────────────────────────────────────────────────────────────────
-            // 중앙 로고 텍스트
-            const Center(
-              child: Text(
-                'AutoToon',
-                style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
+// 중앙 로고 텍스트 // 06/11 이미지 수정
+            Expanded(
+              child: Center(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      'AutoToon',
+                      style: TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Image.asset(
+                      'assets/stamps/stamp_peace.gif',
+                      width: 40,
+                      height: 40,
+                    ),
+                  ],
                 ),
               ),
             ),

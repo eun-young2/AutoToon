@@ -14,6 +14,10 @@
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM"
+        tools:ignore="ExactAlarm" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
     <application
         android:label="frontend"
         android:name="${applicationName}"
@@ -81,8 +85,6 @@
                     android:scheme="autotoon"
                     android:host="login-success" />
             </intent-filter>
-        
-    
         </activity>
 
         <!-- ✅ 카카오 로그인 Redirect URI 처리를 위한 액티비티 추가 -->
@@ -102,6 +104,26 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+
+        <!-- Flutter 플러그인 등록을 위한 메타데이터 -->->
+        <meta-data
+            android:name="flutterEmbedding"
+            android:value="2" />
+
+        <!-- flutter_local_notifications 스케줄 재부팅 후 복원 리시버 -->
+        <receiver
+            android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver"
+            android:exported="true"/>
+        <receiver
+            android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver"
+            android:enabled="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED"/>
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED"/>
+            </intent-filter>
+        </receiver>
+
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

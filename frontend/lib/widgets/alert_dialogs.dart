@@ -303,6 +303,7 @@ class ProfileAlertDialog {
 class AlertDialogs {
   static Future<void> showThemeSheet(
       BuildContext context, ThemeNotifier theme) async {
+        final rootContext = context;
     // 06/11 ++ 1) 알람설정 저장된 설정 불러오기
     final prefs = await SharedPreferences.getInstance();
     bool notifEnabled = prefs.getBool('dailyNotifEnabled') ?? false;
@@ -312,7 +313,8 @@ class AlertDialogs {
 
     // 2) 바텀시트 표시 // 06/11 수정
     await showModalBottomSheet(
-        context: context,
+        context: rootContext,
+        useRootNavigator: true,
         backgroundColor: const Color(0xFFF5F5F5),
         shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
@@ -394,7 +396,8 @@ class AlertDialogs {
 
                       // ② “정말 로그아웃하시겠습니까?” 확인 다이얼로그 띄우기
                       final shouldLogout = await showDialog<bool>(
-                        context: context,
+                        context: rootContext,
+                        useRootNavigator: true,
                         builder: (ctx) {
                           return AlertDialog(
                             backgroundColor: const Color(0xFFF5F5F5),
@@ -422,21 +425,18 @@ class AlertDialogs {
                             ],
                           );
                         },
-                      );
+                      )?? false;
                       // ③ 사용자가 “확인”을 눌렀다면 실제 로그아웃 처리 및 인트로 화면으로 이동
-                      if (shouldLogout == true) {
-                        // 예를 들어: await KakaoSdk.instance.logout();
-                        // TODO: 카카오톡 API에서 실제 로그아웃 처리 코드를 여기에 넣으세요
-                        final prefs = await SharedPreferences.getInstance();
-                        await prefs.clear();
-                        // Intro 페이지로 이동 (기존 스택 모두 제거)
-                        Navigator.of(context).pushNamedAndRemoveUntil(
-                          '/intro',
-                          (route) => false,
-                        );
-                      }
-                    },
-                  ),
+                      if (shouldLogout) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.clear();
+
+      // ③ 최상위 네비게이터로 홈화면(인트로)으로 이동
+      Navigator.of(rootContext, rootNavigator: true)
+          .pushNamedAndRemoveUntil('/intro', (route) => false);
+    }
+  },
+),
                 ],
               ),
             );

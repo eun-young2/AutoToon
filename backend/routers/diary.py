@@ -352,7 +352,7 @@ async def create_diary_with_tmi_stream(
             "img_count":     db_diary.img_count,
             # thumb_path, merged_path, toon_num 도 여기에 포함 가능
         }
-        yield f"event: diary_created\ndata: {json.dumps(response_payload, default=str)}\n\n"
+        yield f"data: diary_created\ndata: {json.dumps(response_payload, default=str)}\n\n"
         
         # 5-1) 첫 안내 메시지 즉시 전송
         first_msg = "열심히 그림을 그리고 있어요!"
@@ -389,7 +389,7 @@ async def create_diary_with_tmi_stream(
 
         print(f"[STREAMING INFO] 이미지 생성 완료: {image_paths}", flush=True)
         # yield f"event: image_done\ndata: {image_json}\n\n"
-        yield f"event: image_done\ndata: {json.dumps(image_json)}\n\n"
+        yield f"data: image_done\ndata: {json.dumps(image_json)}\n\n"
 
     # ── 6) StreamingResponse 반환 ───────────────────────────────────
     return StreamingResponse(
@@ -1028,7 +1028,7 @@ async def update_diary_with_tmi_stream(
             image_json = {"cut_paths": image_paths}
 
         print(f"[STREAMING INFO] 이미지 생성 완료: {image_paths}", flush=True)
-        yield f"event: image_done\ndata: {image_json}\n\n"
+        yield f"data: image_done\ndata: {image_json}\n\n"
 
     # ── 9) StreamingResponse 반환 ───────────────────────────────────
     return StreamingResponse(

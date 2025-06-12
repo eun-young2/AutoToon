@@ -19,6 +19,7 @@ import '../widgets/double_back_to_exit.dart';
 import '../widgets/member_info_components.dart';
 import '../widgets/modal.dart';
 import 'detail_page.dart';
+import 'package:workmanager/workmanager.dart';  // 06/11 ++ 임포트 추가
 
 /// 전역 리스트 선언 (이미지, 텍스트, 작성시간, 이미지스타일)
 final List<XFile> postImages = [];
@@ -251,6 +252,19 @@ class _WritePageState extends State<WritePage> {
     final String? userId = prefs.getString('userId');
 
     final prompt = _randomPrompt;
+    // ++ 06/11 백그라운드 태스크로 “생성” 작업을 위임합니다.
+    Workmanager().registerOneOffTask(
+      'creationTask', // unique name
+      'doCreation', // callback 이름 (callbackDispatcher 에서 같은 이름)
+      existingWorkPolicy: ExistingWorkPolicy.replace, // ▶ 덮어쓰기
+      initialDelay: Duration.zero,
+      inputData: {
+        // 필요시 서버 파라미터나 스타일 정보 등 전달
+        'style': _selectedStyle,
+        'content': _contentCtrl.text.trim(),
+      },
+    );
+
     // 1) 모달 띄우기
     showDialog(
       context: context,
@@ -417,7 +431,7 @@ class _WritePageState extends State<WritePage> {
                       Row(
                         children: [
                           Image.asset(
-                            'assets/stamps/stamp_happy2.png',
+                            'assets/stamps/stamp_happy.gif',
                             width: 30,
                             height: 30,
                           ),
@@ -514,6 +528,9 @@ class _WritePageState extends State<WritePage> {
                             filled: true,
                             counterText: '',
                             contentPadding: const EdgeInsets.all(12),
+
+                            /// ─────────────────────────────────────────────
+                            // 포커스가 없을 때 테두리
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(7),
                               borderSide: const BorderSide(
@@ -521,6 +538,9 @@ class _WritePageState extends State<WritePage> {
                                 width: 1,
                               ),
                             ),
+
+                             /// ─────────────────────────────────────────────
+                            // 포커스 받았을 때 테두리
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(7),
                               borderSide: const BorderSide(
@@ -530,6 +550,8 @@ class _WritePageState extends State<WritePage> {
                             ),
                           ),
                         ),
+
+                        // 잠금된 상태일 때만 보여주는 ‘+잠금해제’ 버튼
                         if (_hasWrittenToday)
                           Center(
                             child: ElevatedButton.icon(
@@ -542,6 +564,7 @@ class _WritePageState extends State<WritePage> {
                                   onUnlocked: () {
                                     setState(() {
                                       _hasWrittenToday = false;
+                                      _diaryCount--; // ✅ 바로 차감
                                     });
                                   },
                                 );

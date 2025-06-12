@@ -6,9 +6,9 @@
 
 // 고정된 stamps asset 목록
 const List<String> kSentimentStampAssets = [
-  'assets/stamps/stamp_happy.png',
-  'assets/stamps/stamp_angry.png',
-  'assets/stamps/stamp_peace.png',
-  'assets/stamps/stamp_sad.png',
-  'assets/stamps/stamp_surprise.png',
+  'assets/stamps/stamp_happy.gif',
+  'assets/stamps/stamp_angry.gif',
+  'assets/stamps/stamp_peace.gif',
+  'assets/stamps/stamp_sad.gif',
+  'assets/stamps/stamp_surprise.gif',
 ];

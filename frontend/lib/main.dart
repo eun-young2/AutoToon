@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:dx_project_dev2/screens/history_page.dart';
+import 'package:dx_project_dev2/widgets/StatusBar_Reminder.dart';  // 06/11 ++ 추가
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -17,6 +18,12 @@ import 'package:dx_project_dev2/screens/write_page.dart';
 
 import 'package:dx_project_dev2/theme/app_theme.dart';
 import 'package:dx_project_dev2/widgets/bottom_nav.dart';
+
+import 'package:timezone/data/latest_all.dart' as tz;  // 06/11 ++ 추가
+import 'package:timezone/timezone.dart' as tz;   // 06/11 ++ 추가
+
+import 'package:dx_project_dev2/widgets/notification_service.dart';   // 06/11 ++ 추가
+import 'package:workmanager/workmanager.dart';    // 06/11 ++ 추가
 
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:kakao_flutter_sdk_user/kakao_flutter_sdk_user.dart';
@@ -46,6 +53,36 @@ void main() async {
     nativeAppKey: dotenv.env['KAKAO_NATIVE_APP_KEY'],
     javaScriptAppKey: dotenv.env['KAKAO_JAVASCRIPT_APP_KEY'],
   );
+
+    // ──────────────────── 06/11 추가 ────────────────────────────
+  // 알림 하기 위한 로직
+  // ─────────── Timezone DB 로드 ───────────
+  tz.initializeTimeZones();
+
+  // ─────────── 시스템 타임존 찾기 ───────────
+  final now = DateTime.now();
+  final offsetMs = now.timeZoneOffset.inMilliseconds;
+  String? foundKey;
+  tz.timeZoneDatabase.locations.forEach((key, loc) {
+    if (loc.currentTimeZone.offset == offsetMs && foundKey == null) {
+      foundKey = key;
+    }
+  });
+  final deviceTz = tz.getLocation(foundKey ?? 'Asia/Seoul');
+  tz.setLocalLocation(deviceTz);
+
+  // ─────────── Notification 초기화 ───────────
+  await NotificationService().init();
+
+  // ─────────── Workmanager ───────────
+  Workmanager().initialize(
+    callbackDispatcher,
+    isInDebugMode: false, // debug 모드에서는 true로 바꿔 로깅 확인 가능
+  );
+
+  // 앱 시작 직후 현재 시각 찍기
+  print('현재 시각: ${DateTime.now().toIso8601String()}');
+  // ──────────────────────────────────────────────────────
 
   final themeNotifier = ThemeNotifier();
   // 앱 시작 전에 미리 팔레트 계산

@@ -4,6 +4,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../screens/write_page.dart';
 import '../theme/app_theme.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:dx_project_dev2/widgets/StatusBar_Reminder.dart'; // 06/11 ++
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 // 알림창(dialog)들은 여기에 추가하겠습니당. 모달창은 따로에요! - 모달창은 확인, 취소가 없는 창
 /// ──────────────── calendar_page.dart ───────────────────
@@ -41,18 +45,18 @@ class CalendarAlertDialog {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Image.asset(
-                      'assets/stamps/stamp_peace.png',
+                      'assets/stamps/stamp_surprise.gif',
                       width: 32,
                       height: 32,
                     ),
-                    const SizedBox(width: 8),
-                    Text(
-                      'x$rewardCount',
-                      style: const TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
+                    // const SizedBox(width: 8),
+                    // Text(
+                    //   'x$rewardCount',
+                    //   style: const TextStyle(
+                    //     fontSize: 24,
+                    //     fontWeight: FontWeight.bold,
+                    //   ),
+                    // ),
                   ],
                 ),
                 const SizedBox(height: 16),
@@ -295,95 +299,149 @@ class ProfileAlertDialog {
   }
 }
 
-// ① 설정창 ───────────────────────────────
+// ① 설정시트 (페이퍼 모드, 알림 설정, 로그아웃) ──────────────────
 class AlertDialogs {
-  static void showThemeSheet(BuildContext context, ThemeNotifier theme) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: const Color(0xFFF5F5F5),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (_) => Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            //테마변경
-            ListTile(
-              leading: const Icon(Icons.brightness_6),
-              title: const Text('페이퍼 모드 전환'),
-              trailing: Switch(
-                value: theme.isPaperMode,
-                onChanged: (_) => theme.togglePaperMode(),
-              ),
-            ),
-            // 알람설정
-            ListTile(
-              leading: const Icon(Icons.notifications),
-              title: const Text('알람설정'),
-              trailing: Switch(
-                value: theme.isPaperMode,
-                onChanged: (_) => theme.togglePaperMode(),
-              ),
-            ),
-            // 로그아웃
-            ListTile(
-              leading: const Icon(Icons.logout),
-              title: const Text('로그아웃'),
-              onTap: () async {
-                // ① bottom sheet 닫기
-                Navigator.of(context).pop();
+  static Future<void> showThemeSheet(
+      BuildContext context, ThemeNotifier theme) async {
+    // 06/11 ++ 1) 알람설정 저장된 설정 불러오기
+    final prefs = await SharedPreferences.getInstance();
+    bool notifEnabled = prefs.getBool('dailyNotifEnabled') ?? false;
+    final hour = prefs.getInt('dailyNotifHour') ?? 20;
+    final minute = prefs.getInt('dailyNotifMinute') ?? 0;
+    TimeOfDay notifTime = TimeOfDay(hour: hour, minute: minute);
 
-                // ② “정말 로그아웃하시겠습니까?” 확인 다이얼로그 띄우기
-                final shouldLogout = await showDialog<bool>(
-                  context: context,
-                  builder: (ctx) {
-                    return AlertDialog(
-                      backgroundColor: const Color(0xFFF5F5F5),
-                      title: const Text('로그아웃'),
-                      content: const Text('정말 로그아웃하시겠습니까?'),
-                      actions: [
-                        TextButton(
-                          onPressed: () => Navigator.of(ctx).pop(false),
-                          child: const Text(
-                            '취소',
-                            style: TextStyle(
-                              color: Colors.black87,
-                            ),
-                          ),
+    // 2) 바텀시트 표시 // 06/11 수정
+    await showModalBottomSheet(
+        context: context,
+        backgroundColor: const Color(0xFFF5F5F5),
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        builder: (_) {
+          // 06/11 ++ 추가 및 수정
+          // 콜백: 다이얼로그에서 설정 변경 후 이 함수로 state 갱신
+          void _update() {
+            notifEnabled = prefs.getBool('dailyNotifEnabled') ?? notifEnabled;
+            final h = prefs.getInt('dailyNotifHour') ?? notifTime.hour;
+            final m = prefs.getInt('dailyNotifMinute') ?? notifTime.minute;
+            notifTime = TimeOfDay(hour: h, minute: m);
+          }
+
+          // 3) 내부 다이얼로그: 토글·시간 설정용.
+          return StatefulBuilder(builder: (context, setState) {
+            return Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  //테마변경
+                  ListTile(
+                    leading: const Icon(Icons.brightness_6),
+                    title: const Text('페이퍼 모드 전환'),
+                    trailing: Switch(
+                      value: theme.isPaperMode,
+                      onChanged: (_) => theme.togglePaperMode(),
+                    ),
+                  ),
+
+                  // 알림 설정
+                  ListTile(
+                    leading: const Icon(Icons.notifications),
+                    title: const Text('리마인더 설정'),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // 설정 시간 또는 꺼짐 텍스트
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                          child: notifEnabled
+                              ? Text(
+                                  '설정 시간: ${notifTime.format(context)}',
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.black54,
+                                  ),
+                                )
+                              : const Text(
+                                  '리마인더 꺼짐',
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.black54,
+                                  ),
+                                ),
                         ),
-                        ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor:
-                                const Color(0xFFD6C7A6), // 기존 배경색 유지
-                            foregroundColor: Colors.black, // 텍스트 색상을 검정으로
-                          ),
-                          onPressed: () => Navigator.of(ctx).pop(true),
-                          child: const Text('확인'),
+                        IconButton(
+                          icon: const Icon(Icons.chevron_right),
+                          onPressed: () async {
+                            await showNotificationSettingsDialog(
+                              context,
+                              notifEnabled,
+                              notifTime,
+                              () => setState(_update),
+                            );
+                          },
                         ),
                       ],
-                    );
-                  },
-                );
-                // ③ 사용자가 “확인”을 눌렀다면 실제 로그아웃 처리 및 인트로 화면으로 이동
-                if (shouldLogout == true) {
-                  // 예를 들어: await KakaoSdk.instance.logout();
-                  // TODO: 카카오톡 API에서 실제 로그아웃 처리 코드를 여기에 넣으세요
-                  final prefs = await SharedPreferences.getInstance();
-                  await prefs.clear();
-                  // Intro 페이지로 이동 (기존 스택 모두 제거)
-                  Navigator.of(context).pushNamedAndRemoveUntil(
-                    '/intro',
-                    (route) => false,
-                  );
-                }
-              },
-            ),
-          ],
-        ),
-      ),
-    );
+                    ),
+                  ),
+                  // 로그아웃
+                  ListTile(
+                    leading: const Icon(Icons.logout),
+                    title: const Text('로그아웃'),
+                    onTap: () async {
+                      // ① bottom sheet 닫기
+                      Navigator.of(context).pop();
+
+                      // ② “정말 로그아웃하시겠습니까?” 확인 다이얼로그 띄우기
+                      final shouldLogout = await showDialog<bool>(
+                        context: context,
+                        builder: (ctx) {
+                          return AlertDialog(
+                            backgroundColor: const Color(0xFFF5F5F5),
+                            title: const Text('로그아웃'),
+                            content: const Text('정말 로그아웃하시겠습니까?'),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.of(ctx).pop(false),
+                                child: const Text(
+                                  '취소',
+                                  style: TextStyle(
+                                    color: Colors.black87,
+                                  ),
+                                ),
+                              ),
+                              ElevatedButton(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFFD6C7A6),
+                                  // 기존 배경색 유지
+                                  foregroundColor: Colors.black, // 텍스트 색상을 검정으로
+                                ),
+                                onPressed: () => Navigator.of(ctx).pop(true),
+                                child: const Text('확인'),
+                              ),
+                            ],
+                          );
+                        },
+                      );
+                      // ③ 사용자가 “확인”을 눌렀다면 실제 로그아웃 처리 및 인트로 화면으로 이동
+                      if (shouldLogout == true) {
+                        // 예를 들어: await KakaoSdk.instance.logout();
+                        // TODO: 카카오톡 API에서 실제 로그아웃 처리 코드를 여기에 넣으세요
+                        final prefs = await SharedPreferences.getInstance();
+                        await prefs.clear();
+                        // Intro 페이지로 이동 (기존 스택 모두 제거)
+                        Navigator.of(context).pushNamedAndRemoveUntil(
+                          '/intro',
+                          (route) => false,
+                        );
+                      }
+                    },
+                  ),
+                ],
+              ),
+            );
+          });
+        });
   }
 
   // ② 아이템 상세 Dialog ───────────────────────────────
@@ -682,9 +740,21 @@ class UnlockDialogs {
                   ),
                   if (hasNoDiary) ...[
                     const SizedBox(height: 8),
-                    const Text(
-                      '보유한 일기장이 없습니다.',
-                      style: TextStyle(fontSize: 12, color: Colors.red),
+                    // 06/11 이미지 수정
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Text(
+                          '보유한 일기장이 없습니다.',
+                          style: TextStyle(fontSize: 12, color: Colors.red),
+                        ),
+                        const SizedBox(width: 5),
+                        Image.asset(
+                          'assets/stamps/stamp_sad.gif',
+                          width: 25,
+                          height: 25,
+                        ),
+                      ],
                     ),
                   ],
                 ],
@@ -704,20 +774,38 @@ class UnlockDialogs {
                     backgroundColor: const Color(0xFFD6C7A6), // 기존 배경색 유지
                     foregroundColor: Colors.black, // 텍스트 색상을 검정으로
                   ),
-                  onPressed: () async {
-                    if (currentDiaryCount > 0) {
-                      // 일기장 소모
-                      final newCount = currentDiaryCount - 1;
-                      await prefs.setInt('diaryCount', newCount);
-                      onUnlocked(); // WritePage 쪽에서 잠금 해제 처리
-                      Navigator.pop(context);
-                    } else {
-                      // 보유 일기장 없음 메시지 갱신
-                      setDialogState(() {
-                        hasNoDiary = true;
-                      });
-                    }
-                  },
+                  onPressed: hasNoDiary
+                      ? null
+                      : () async {
+                          // ✅ 1) 일기장 차감
+                          final newCount = currentDiaryCount - 1;
+                          final prefs = await SharedPreferences.getInstance();
+                          await prefs.setInt('diaryCount', newCount);
+
+                          // ✅ 2) 서버에도 PATCH 요청으로 일기장 차감 반영
+                          final userId = prefs.getString('userId') ?? '';
+                          final baseUrl = dotenv.env['API_BASE_URL'] ??
+                              'http://211.188.62.213:8000';
+                          if (userId.isNotEmpty) {
+                            final url = Uri.parse('$baseUrl/api/users/$userId');
+                            try {
+                              final response = await http.patch(
+                                url,
+                                headers: {'Content-Type': 'application/json'},
+                                body: jsonEncode({'diary_item': newCount}),
+                              );
+                              if (response.statusCode != 200) {
+                                print('⚠ 서버 일기장 차감 실패: ${response.body}');
+                              }
+                            } catch (e) {
+                              print('❌ 서버 요청 중 오류: $e');
+                            }
+                          }
+
+                          // ✅ 3) 콜백 실행 후 팝업 닫기
+                          onUnlocked(); // WritePage 쪽 상태 갱신
+                          Navigator.of(context).pop();
+                        },
                   child: const Text('확인'),
                 ),
               ],
@@ -967,9 +1055,21 @@ class WriteLockDialogs {
                   ),
                   const SizedBox(height: 12),
                   if (hasNoTape) ...[
-                    const Text(
-                      '수정테이프가 부족 합니다.',
-                      style: TextStyle(fontSize: 12, color: Colors.red),
+                    // 06/11 이미지 수정
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Text(
+                          '수정테이프가 부족 합니다.',
+                          style: TextStyle(fontSize: 12, color: Colors.red),
+                        ),
+                        const SizedBox(width: 5),
+                        Image.asset(
+                          'assets/stamps/stamp_sad.gif',
+                          width: 25,
+                          height: 25,
+                        ),
+                      ],
                     ),
                   ],
                 ],

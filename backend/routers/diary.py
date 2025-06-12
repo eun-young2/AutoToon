@@ -2,8 +2,9 @@
 
 import random
 import asyncio
+import json
 from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, JSONResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import func, extract, select
 from typing import List, Optional, AsyncGenerator
@@ -338,8 +339,23 @@ async def create_diary_with_tmi_stream(
         - 그 뒤로는 10초 간격으로 Random TMI 전송
         - 마지막에 'event: image_done' + JSON 데이터 전송
         """
+        # 0) Diary 객체 생성 직후 payload 를 SSE 로 먼저 보낸다
+        response_payload = {
+            "diary_num":     db_diary.diary_num,
+            "user_id":       db_diary.user_id,
+            "style_id":      db_diary.style_id,
+            "diary_date":    db_diary.diary_date,
+            "content":       db_diary.content,
+            "emotion_tag":   db_diary.emotion_tag,
+            "prompt_result": db_diary.prompt_result,
+            "created_at":    db_diary.created_at,
+            "img_count":     db_diary.img_count,
+            # thumb_path, merged_path, toon_num 도 여기에 포함 가능
+        }
+        yield f"event: diary_created\ndata: {json.dumps(response_payload, default=str)}\n\n"
+        
         # 5-1) 첫 안내 메시지 즉시 전송
-        first_msg = "새 일기를 생성하고 있습니다. 잠시만 기다려 주세요..."
+        first_msg = "열심히 그림을 그리고 있어요!"
         print(f"[STREAMING TMI] {first_msg}", flush=True)
         yield f"data: {first_msg}\n\n"
 
@@ -372,7 +388,8 @@ async def create_diary_with_tmi_stream(
             image_json = {"cut_paths": image_paths}
 
         print(f"[STREAMING INFO] 이미지 생성 완료: {image_paths}", flush=True)
-        yield f"event: image_done\ndata: {image_json}\n\n"
+        # yield f"event: image_done\ndata: {image_json}\n\n"
+        yield f"event: image_done\ndata: {json.dumps(image_json)}\n\n"
 
     # ── 6) StreamingResponse 반환 ───────────────────────────────────
     return StreamingResponse(
@@ -450,6 +467,94 @@ def read_diaries(skip: int = 0, limit: int = 100, db: Session = Depends(get_db))
         result_list.append(item)
     return result_list
 
+# ─────────────────────────────────────────────────────────────────────
+# 특정 유저 + (선택) 특정 날짜 일기 조회  (GET /diaries/user/{user_id})
+@router.get(
+    "/user/{user_id}",
+    response_model=List[DiaryResponse],
+    summary="특정 사용자 일기 조회 (날짜 필터 선택)",
+    description="""
+        - `user_id`로 필터링한 뒤 생성 시각 내림차순으로 반환합니다.  
+        - `date`(YYYY-MM-DD)를 쿼리 파라미터로 주면 **그 날짜 일기만** 돌려줍니다.
+    """,
+)
+def read_user_diaries(
+    user_id: int,
+    date: Optional[str] = None,        # ← YYYY-MM-DD 형식
+    skip: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_db),
+):
+    # ── 1) 기본 쿼리 (userId 필터) ─────────────────────────────
+    q = (
+        db.query(Diary)
+          .filter(Diary.user_id == user_id)
+    )
+
+    # ── 2) 날짜 파라미터가 넘어오면 YYYY-MM-DD 비교 ──────────
+    if date:
+        # 문자열 → datetime.date
+        try:
+            from datetime import datetime
+            target = datetime.strptime(date, "%Y-%m-%d").date()
+        except ValueError:
+            raise HTTPException(status_code=400, detail="date 형식은 YYYY-MM-DD 여야 합니다.")
+        
+        # Diary.diary_date 가 DateTime 컬럼일 경우, DATE()로 자르고 비교
+        q = q.filter(func.date(Diary.diary_date) == target)
+
+    # ── 3) 정렬·페이징 후 조회 ────────────────────────────────
+    diaries = (
+        q.order_by(Diary.created_at.desc())
+         .offset(skip)
+         .limit(limit)
+         .all()
+    )
+
+    # ── 4) Toon 정보까지 포함해 응답 형태 맞추기 ────────────────
+    result_list: list[dict] = []
+    for d in diaries:
+        toon_obj = (
+            db.query(Toon)
+              .filter(Toon.diary_num == d.diary_num)
+              .order_by(Toon.toon_num.asc())
+              .first()
+        )
+
+        item = {
+            "diary_num":     d.diary_num,
+            "user_id":       d.user_id,
+            "style_id":      d.style_id,
+            "diary_date":    d.diary_date,
+            "content":       d.content,
+            "emotion_tag":   d.emotion_tag,
+            "prompt_result": d.prompt_result,
+            "created_at":    d.created_at,
+            "img_count":     d.img_count,
+            "thumb_path":    None,
+            "merged_path":   None,
+            "toon_num":      None,
+        }
+
+        if toon_obj:
+            item["thumb_path"]  = toon_obj.thumb_path
+            item["merged_path"] = toon_obj.merged_path
+            item["toon_num"]    = toon_obj.toon_num
+
+        result_list.append(item)
+
+    def _to_json_safe(obj: dict) -> dict:
+        for k in ("diary_date", "created_at"):
+            if obj.get(k) is not None:
+                obj[k] = obj[k].isoformat()          # date → 문자열
+        return obj
+
+    safe_payload = [_to_json_safe(i) for i in result_list]
+
+    return JSONResponse(
+        content=safe_payload,
+        media_type="application/json; charset=utf-8",
+    )
 
 # ─────────────────────────────────────────────────────────────────────
 # 6) user_id별: 해당 월에 작성된 날짜 목록 조회
@@ -595,7 +700,15 @@ def read_diary(diary_id: int, db: Session = Depends(get_db)):
         resp["thumb_path"]  = toon_obj.thumb_path
         resp["merged_path"] = toon_obj.merged_path
         resp["toon_num"]    = toon_obj.toon_num
-    return resp
+
+    for k in ("diary_date", "created_at"):
+        if resp.get(k) is not None:
+            resp[k] = resp[k].isoformat()
+
+    return JSONResponse(
+        content=resp,
+        media_type="application/json; charset=utf-8",
+    )
 
 
 
@@ -881,7 +994,7 @@ async def update_diary_with_tmi_stream(
         * 최종 이미지 생성 완료 후 "event: image_done" 전송
         """
         # 1) 즉시 첫 메시지 1회
-        first_msg = "열심히 그림을 그리고 있어요! 잠시만 기다려 주세요..."
+        first_msg = "열심히 그림을 그리고 있어요!"
         print(f"[STREAMING TMI] {first_msg}", flush=True)
         yield f"data: {first_msg}\n\n"
 

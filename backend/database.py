@@ -7,6 +7,8 @@ from dotenv import load_dotenv
 from fastapi import Depends
 from pathlib import Path
 
+BASE_DIR = Path(__file__).resolve().parent
+
 # .env 파일에서 환경변수 불러오기
 load_dotenv(Path('backend/.env'))
 
@@ -32,6 +34,8 @@ engine_sync = create_engine(
     SYNC_DATABASE_URL,
     echo=True,
     future=True,
+    pool_pre_ping=True,   
+    pool_recycle=3600,
 )
 SessionLocal = sessionmaker(
     bind=engine_sync,

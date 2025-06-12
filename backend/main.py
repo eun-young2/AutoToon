@@ -1,8 +1,9 @@
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, Request, status
 from fastapi.responses import RedirectResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 import httpx
 import os
+from pathlib import Path
 from dotenv import load_dotenv
 from sqlalchemy.orm import Session
 from backend.database import get_db
@@ -21,6 +22,8 @@ from backend.tagging_gpt_fastapi import router as tagging_router
 from backend.routers.tmi import router as tmi_router
 from backend.routers.attendance import router as attendance_router
 from fastapi.routing import APIRoute
+from urllib.parse import quote_plus, urlencode
+from backend.utils.image_utils import ROOT as IMAGES_ROOT, BASE_URL_PATH
 
 load_dotenv()
 print("💡 KAKAO_REDIRECT_URI =", os.getenv("KAKAO_REDIRECT_URI"))
@@ -43,6 +46,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# IMAGES_ROOT = Path(__file__).resolve().parents[1] / "images"   # image_utils.py 의 ROOT 와 같게
+app.mount("/images", StaticFiles(directory=IMAGES_ROOT), name="images")
 
 KAKAO_CLIENT_ID = os.getenv("KAKAO_CLIENT_ID")
 KAKAO_CLIENT_SECRET = os.getenv("KAKAO_CLIENT_SECRET")

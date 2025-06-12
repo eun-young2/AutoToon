@@ -428,15 +428,15 @@ class AlertDialogs {
                       )?? false;
                       // ③ 사용자가 “확인”을 눌렀다면 실제 로그아웃 처리 및 인트로 화면으로 이동
                       if (shouldLogout) {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.clear();
+                        final prefs = await SharedPreferences.getInstance();
+                        await prefs.clear();
 
-      // ③ 최상위 네비게이터로 홈화면(인트로)으로 이동
-      Navigator.of(rootContext, rootNavigator: true)
-          .pushNamedAndRemoveUntil('/intro', (route) => false);
-    }
-  },
-),
+                        // ③ 최상위 네비게이터로 홈화면(인트로)으로 이동
+                        Navigator.of(rootContext, rootNavigator: true)
+                            .pushNamedAndRemoveUntil('/intro', (route) => false);
+                      }
+                    },
+                  ),
                 ],
               ),
             );

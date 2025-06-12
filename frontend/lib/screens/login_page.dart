@@ -64,16 +64,25 @@ class _LoginPageState extends State<LoginPage> {
     //     → 이 경우, uri.scheme == 'autotoon', uri.host == 'login-success'
     // ──────────────────────────────────────────────────────────────────────────
     if (uri.scheme == 'autotoon' && uri.host == 'login-success') {
+      final userId = uri.queryParameters['userId'];       // ← 추가
       final nickname = uri.queryParameters['nickname'];
       final token = uri.queryParameters['token'];
-      debugPrint('딥링크(Custom Scheme) 수신 → nick=$nickname, token=$token');
+      debugPrint('딥링크(Custom Scheme) 수신 → userId=$userId, nick=$nickname, token=$token');
 
       // 홈 화면('/main')으로 이동하면서 닉네임을 arguments로 전달
       if (!mounted) return;
+
+      // 예시: userId를 int로 넘기고 싶다면 파싱
+      final uid = int.tryParse(userId ?? '0') ?? 0;
+
       Navigator.pushReplacementNamed(
         context,
         '/main',
-        arguments: nickname,
+        arguments: {
+      'userId': uid,
+      'nickname': nickname,
+      'token': token,
+    },
       );
       return; // 분기 처리 후 함수를 종료
     }

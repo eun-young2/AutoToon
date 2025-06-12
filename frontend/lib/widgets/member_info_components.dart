@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:external_app_launcher/external_app_launcher.dart';  // 06/12 ++추가
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -291,51 +292,43 @@ class _FrameoLauncherState extends State<FrameoLauncher> {
     await prefs.setString('skipFrameoTooltipDate', DateTime.now().toIso8601String());
   }
 
-  /// “앱 실행/설치” 버튼 누를 때 호출
+  /// “앱 실행/설치” 버튼 누를 때 호출  // 06/12 ++ 수정
   Future<void> _onPressed() async {
-    const androidIntentUri = 'intent://#Intent;package=net.frameo.app;end';
-    const playStoreUrl =
-        'https://play.google.com/store/apps/details?id=net.frameo.app&hl=ko';
+    const packageName    = 'net.frameo.app';
+    const playStoreUrl   = 'https://play.google.com/store/apps/details?id=$packageName&hl=ko';
     const iosAppStoreUrl = 'https://apps.apple.com/kr/app/frameo/id1179744119';
+    const iosScheme      = 'frameo://';
 
-    // 1) 현재 플랫폼 확인
-    final deviceInfo = DeviceInfoPlugin();
-    final info = await deviceInfo.deviceInfo;
-    final isAndroid = info.data['platform'] == 'android' || Platform.isAndroid;
-    final isIOS = info.data['platform'] == 'ios' || Platform.isIOS;
-
-    if (isAndroid) {
-      // 2) Android: Intent URI 로 앱 실행 시도
-      final intentUri = Uri.parse(androidIntentUri);
-      bool launched = false;
+        if (Platform.isAndroid) {
+      // 1) 설치 여부 확인 및 바로 실행
       try {
-        launched = await launchUrl(
-          intentUri,
-          mode: LaunchMode.externalApplication,
+        await LaunchApp.openApp(
+          androidPackageName: packageName,
+          openStore: true,            // 설치 안 되어 있으면 에러를 던짐
         );
+        return;
       } catch (_) {
-        launched = false;
-      }
-
-      if (!launched) {
-        // 3) 설치 안 되어 있거나 실행 실패 시
-        if (!_skipTooltip) {
-          _showTooltip();
-        }
-        // Play Store 열기
+        // 2) 설치 안 되어 있거나 실행 실패 시
+        if (!_skipTooltip) _showTooltip();
         final Uri storeUri = Uri.parse(playStoreUrl);
         if (await canLaunchUrl(storeUri)) {
           await launchUrl(storeUri, mode: LaunchMode.externalApplication);
         }
       }
-    } else if (isIOS) {
-      // 4) iOS: 바로 App Store 링크 열기
+    } else if (Platform.isIOS) {
+      // 3) iOS: 커스텀 scheme으로 앱 실행 시도
+      final Uri schemeUri = Uri.parse(iosScheme);
+      if (await canLaunchUrl(schemeUri)) {
+        await launchUrl(schemeUri, mode: LaunchMode.externalApplication);
+        return;
+      }
+      // 실패하면 App Store로
       final Uri storeUri = Uri.parse(iosAppStoreUrl);
       if (await canLaunchUrl(storeUri)) {
         await launchUrl(storeUri, mode: LaunchMode.externalApplication);
       }
     } else {
-      // 5) 웹/기타 플랫폼: 그냥 Play Store 웹페이지 열기
+      // 4) 웹/기타 플랫폼: Play 스토어로
       final Uri storeUri = Uri.parse(playStoreUrl);
       if (await canLaunchUrl(storeUri)) {
         await launchUrl(storeUri, mode: LaunchMode.externalApplication);

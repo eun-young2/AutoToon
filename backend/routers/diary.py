@@ -666,6 +666,21 @@ def get_user_monthly_emotion_stats(
             )
         )
 
+    # 기준 순서: joy → sadness → anger → excitement → calm
+    ORDER = ["joy", "sadness", "anger", "excitement", "calm"]
+
+    # ① 지금 만든 리스트를 {tag: item} dict 로 변환
+    stats_map = {s.emotion_tag: s for s in stats_list}
+
+    # ② 기준 순서대로 다시 배열하고, 없는 태그는 0,0 으로 채움
+    stats_list = [
+        stats_map.get(
+            tag,
+            MonthlyEmotionStatsItem(emotion_tag=tag, count=0, ratio=0),
+        )
+        for tag in ORDER
+    ]
+
     # ── 5) 응답 반환 ───────────────────────────────────────────────────────
     return MonthlyEmotionStatsResponse(
         year=year,

@@ -352,7 +352,9 @@ async def create_diary_with_tmi_stream(
             "img_count":     db_diary.img_count,
             # thumb_path, merged_path, toon_num 도 여기에 포함 가능
         }
-        yield f"data: diary_created\ndata: {json.dumps(response_payload, default=str)}\n\n"
+        # yield f"data: diary_created\ndata: {json.dumps(response_payload, default=str)}\n\n"
+        yield "event: diary_created\n"
+        yield f"data: {json.dumps(response_payload, default=str)}\n\n"
         
         # 5-1) 첫 안내 메시지 즉시 전송
         first_msg = "열심히 그림을 그리고 있어요!"
@@ -1002,6 +1004,20 @@ async def update_diary_with_tmi_stream(
         * 그 이후 10초 간격 TMI 스트리밍
         * 최종 이미지 생성 완료 후 "event: image_done" 전송
         """
+        # 0️⃣  수정된 Diary 내용을 바로 diary_created 이벤트로 알림
+        response_payload = {
+            "diary_num":     db_diary.diary_num,
+            "user_id":       db_diary.user_id,
+            "style_id":      db_diary.style_id,
+            "diary_date":    db_diary.diary_date,
+            "content":       db_diary.content,
+            "emotion_tag":   db_diary.emotion_tag,
+            "prompt_result": db_diary.prompt_result,
+            "created_at":    db_diary.created_at,
+            "img_count":     db_diary.img_count,
+        }
+        yield "event: diary_created\n"                              # ← 추가
+        yield f"data: {json.dumps(response_payload, default=str)}\n\n"   # ← 추가
         # 1) 즉시 첫 메시지 1회
         first_msg = "열심히 그림을 그리고 있어요!"
         print(f"[STREAMING TMI] {first_msg}", flush=True)

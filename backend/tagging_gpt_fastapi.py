@@ -163,7 +163,7 @@ def generate_custom_question(base_question, tags):
 @router.post("/generate-question")
 async def generate_question(request: GenerateQuestionRequest):
 
-    query_diary = (select(tb_diary.c.content).where(tb_diary.c.user_id == request.user_id).order_by(tb_diary.c.created_at.desc()).limit(2))
+    query_diary = (select(tb_diary.c.content).where(tb_diary.c.user_id == request.user_id).order_by(tb_diary.c.created_at.desc()).limit(1))
     row_diary = await database.fetch_one(query_diary)
 
     if row_diary is None:
@@ -179,7 +179,7 @@ async def generate_question(request: GenerateQuestionRequest):
     print("✅ 예측 태그:", tags)
 
     # ✅ DB에서 기본 질문 가져오기 (예: 첫 번째 질문만 사용)
-    query = select(tb_basic_question).order_by(func.rand()).limit(2)
+    query = select(tb_basic_question).order_by(func.rand()).limit(1)
     row = await database.fetch_one(query)
 
     if row is None:

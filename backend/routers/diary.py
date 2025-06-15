@@ -422,7 +422,7 @@ async def create_diary_with_tmi_stream(
 def get_diary_images(diary_id: int, db: Session = Depends(get_db)):
     # Diary가 아니라 Toon 테이블에서 임의로 하나만 꺼내도 되지만,
     # 여기서는 diary_id 기준으로 첫 번째 Toon 레코드를 조회합니다.
-    toon_obj = db.query(Toon).filter(Toon.diary_num == diary_id).order_by(Toon.toon_num.asc()).first()
+    toon_obj = db.query(Toon).filter(Toon.diary_num == diary_id).order_by(Toon.toon_num.desc()).first()
     if not toon_obj:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="아직 이미지가 생성되지 않았습니다.")
 
@@ -452,7 +452,7 @@ def read_diaries(skip: int = 0, limit: int = 100, db: Session = Depends(get_db))
     )
     result_list = []
     for d in diaries:
-        toon_obj = db.query(Toon).filter(Toon.diary_num == d.diary_num).order_by(Toon.toon_num.asc()).first()
+        toon_obj = db.query(Toon).filter(Toon.diary_num == d.diary_num).order_by(Toon.toon_num.desc()).first()
 
         item = {
             "diary_num":     d.diary_num,
@@ -528,7 +528,7 @@ def read_user_diaries(
         toon_obj = (
             db.query(Toon)
               .filter(Toon.diary_num == d.diary_num)
-              .order_by(Toon.toon_num.asc())
+              .order_by(Toon.toon_num.desc())
               .first()
         )
 
@@ -706,7 +706,7 @@ def read_diary(diary_id: int, db: Session = Depends(get_db)):
     
     # 2) tb_toon에서 해당 diary_id의 Toon 레코드가 있는지 조회
     #    (toon이 여러 개일 가능성은 보통 없다고 가정하고 첫 번째만 사용)
-    toon_obj = db.query(Toon).filter(Toon.diary_num == diary_id).order_by(Toon.toon_num.asc()).first()
+    toon_obj = db.query(Toon).filter(Toon.diary_num == diary_id).order_by(Toon.toon_num.desc()).first()
 
     # 3) 응답 페이로드 조립
     resp = {

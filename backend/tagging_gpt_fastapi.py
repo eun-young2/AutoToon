@@ -162,40 +162,101 @@ def generate_custom_question(base_question, tags):
 # ✅ 엔드포인트 정의
 @router.post("/generate-question")
 async def generate_question(request: GenerateQuestionRequest):
+    # 1. 회원 정보 조회
+    query_find = (
+        select(tb_user.c.user_id, tb_user.c.created_at)
+        .where(tb_user.c.user_id == request.user_id)
+        .limit(1)
+    )
+    row_user = await database.fetch_one(query_find)
+    if row_user is None:
+        raise HTTPException(status_code=404, detail="해당 사용자가 존재하지 않습니다.")
 
-    query_diary = (select(tb_diary.c.content).where(tb_diary.c.user_id == request.user_id).order_by(tb_diary.c.created_at.desc()).limit(1))
+    joined_at: datetime = row_user["created_at"]
+    today_date = date.today()
+    is_new_today = (joined_at.date() == today_date)
+
+    # 2. 최근 일기 조회
+    query_diary = (
+        select(tb_diary.c.content)
+        .where(tb_diary.c.user_id == request.user_id)
+        .order_by(tb_diary.c.created_at.desc())
+        .limit(1)
+    )
     row_diary = await database.fetch_one(query_diary)
 
-    if row_diary is None:
-        raise HTTPException(status_code=404, detail="최근 일기가 없습니다.")
-
-
-    text = row_diary["content"]
-
-    if len(text) < 100:
-        raise HTTPException(status_code=400, detail="텍스트 길이가 너무 짧습니다.")
-    
-    tags = predict_tags(text)
-    print("✅ 예측 태그:", tags)
-
-    # ✅ DB에서 기본 질문 가져오기 (예: 첫 번째 질문만 사용)
+    # 3. DB에서 기본 질문 하나 랜덤으로 가져오기
     query = select(tb_basic_question).order_by(func.rand()).limit(1)
     row = await database.fetch_one(query)
-
     if row is None:
         raise HTTPException(status_code=404, detail="기본 질문이 없습니다.")
-
     base_question = row["question"]
 
+    # 4. 분기처리
+    if is_new_today or row_diary is None:
+        # 신규 회원 (오늘 가입했거나, 일기 없음)
+        return {
+            "status": "new_today",
+            "base_question": base_question,
+            "customized_question": base_question,
+            "predicted_tags": []
+        }
+    else:
+        # 기존 회원 (일기 O, 오늘 가입 X)
+        text = row_diary["content"]
+        if len(text) < 100:
+            # 최근 일기가 너무 짧으면 그냥 기본 질문만 리턴
+            return {
+                "status": "existing_short_diary",
+                "base_question": base_question,
+                "customized_question": base_question,
+                "predicted_tags": []
+            }
 
-    # ✅ GPT로 질문 재작성
-    new_question = generate_custom_question(base_question, tags)
+        tags = predict_tags(text)
+        print("✅ 예측 태그:", tags)
+        new_question = generate_custom_question(base_question, tags)
 
-    return {
-        "predicted_tags": tags,
-        "base_question": base_question,
-        "customized_question": new_question
-    }
+        return {
+            "status": "existing",
+            "base_question": base_question,
+            "customized_question": new_question,
+            "predicted_tags": tags
+        }
+
+    # query_diary = (select(tb_diary.c.content).where(tb_diary.c.user_id == request.user_id).order_by(tb_diary.c.created_at.desc()).limit(1))
+    # row_diary = await database.fetch_one(query_diary)
+
+    # if row_diary is None:
+    #     raise HTTPException(status_code=404, detail="최근 일기가 없습니다.")
+
+
+    # text = row_diary["content"]
+
+    # if len(text) < 100:
+    #     raise HTTPException(status_code=400, detail="텍스트 길이가 너무 짧습니다.")
+    
+    # tags = predict_tags(text)
+    # print("✅ 예측 태그:", tags)
+
+    # # ✅ DB에서 기본 질문 가져오기 (예: 첫 번째 질문만 사용)
+    # query = select(tb_basic_question).order_by(func.rand()).limit(1)
+    # row = await database.fetch_one(query)
+
+    # if row is None:
+    #     raise HTTPException(status_code=404, detail="기본 질문이 없습니다.")
+
+    # base_question = row["question"]
+
+
+    # # ✅ GPT로 질문 재작성
+    # new_question = generate_custom_question(base_question, tags)
+
+    # return {
+    #     "predicted_tags": tags,
+    #     "base_question": base_question,
+    #     "customized_question": new_question
+    # }
 
 # 신규 회원, 기존 회원 분기 로직
 @router.post("/check-user-status", response_model=UserCheckResponse)

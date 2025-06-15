@@ -3,6 +3,7 @@
 from sqlalchemy import Column, Integer, String, Text, Date, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
 from backend.database import Base
+from sqlalchemy.sql import func
 
 class Diary(Base):
     __tablename__ = "tb_diary"
@@ -10,11 +11,11 @@ class Diary(Base):
     diary_num     = Column("diary_num", Integer, primary_key=True, index=True)
     user_id       = Column("user_id", String(100), ForeignKey("tb_user.user_id"), nullable=False)
     style_id      = Column("style_id", Integer, ForeignKey("tb_style.style_id"), nullable=False)
-    diary_date    = Column("diary_date", Date, nullable=False)
+    diary_date    = Column("diary_date", Date, nullable=False, server_default=func.now())
     content       = Column("content", Text, nullable=False)
     emotion_tag   = Column("emotion_tag", String(20), nullable=True)
     prompt_result = Column("prompt_result", Text, nullable=True)
-    created_at    = Column("created_at", DateTime, nullable=False)
+    created_at    = Column("created_at", DateTime(timezone=True), nullable=False, server_default=func.now())
     img_count     = Column("img_count", Integer, nullable=False, default=0)
 
     toons = relationship("Toon", back_populates="diary", cascade="all, delete-orphan")

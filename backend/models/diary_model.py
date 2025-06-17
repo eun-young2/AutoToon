@@ -16,7 +16,7 @@ class Diary(Base):
     emotion_tag   = Column("emotion_tag", String(20), nullable=True)
     prompt_result = Column("prompt_result", Text, nullable=True)
     created_at    = Column("created_at", DateTime(timezone=True), nullable=False, server_default=func.now())
-    img_count     = Column("img_count", Integer, nullable=False, default=0)
+    img_count = Column("img_count", Integer, nullable=False, default=0, server_default="0")
 
     toons = relationship("Toon", back_populates="diary", cascade="all, delete-orphan")
     style = relationship("Style", back_populates="diaries") 

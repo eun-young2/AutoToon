@@ -1,25 +1,26 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:math';
-import 'dart:io';
+import 'package:smooth_page_indicator/smooth_page_indicator.dart';
+import 'dart:convert';
+import 'package:eventsource/eventsource.dart';
 
+import '../widgets/member_info_components.dart';
+import 'detail_page.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:intl/intl.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:smooth_page_indicator/smooth_page_indicator.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:csv/csv.dart';
-
-import '../widgets/alert_dialogs.dart';
-import '../widgets/chat_bubble.dart';
+import 'package:dx_project_dev2/widgets/alert_dialogs.dart';
+import 'package:dx_project_dev2/widgets/modal.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:dx_project_dev2/services/api_service.dart';
+import 'package:intl/intl.dart';
 import '../widgets/double_back_to_exit.dart';
-import '../widgets/member_info_components.dart';
-import '../widgets/modal.dart';
-import 'detail_page.dart';
-import 'package:workmanager/workmanager.dart';  // 06/11 ++ 임포트 추가
+import '../widgets/chat_bubble.dart';
+import 'package:dx_project_dev2/models/diary_model.dart';
+import 'package:dx_project_dev2/main.dart' show navigatorKey;
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 /// 전역 리스트 선언 (이미지, 텍스트, 작성시간, 이미지스타일)
 final List<XFile> postImages = [];
@@ -32,32 +33,49 @@ final List<String> postStyles = [];
 final Set<int> likedPosts = {};
 
 class WritePage extends StatefulWidget {
+  /// 유저 ID
+  final int userId;
+
   /// editIdx: null 이면 신규 작성, 정수값(idx)이 넘어오면 수정 모드
   final int? editIdx;
 
-  const WritePage({Key? key, this.editIdx}) : super(key: key);
+  const WritePage({Key? key, required this.userId, this.editIdx})
+      : super(key: key);
 
   @override
   State<WritePage> createState() => _WritePageState();
 }
 
+/// ─────────────────────────────────────────────
 class _WritePageState extends State<WritePage> {
   XFile? _image;
   final ImagePicker _picker = ImagePicker();
   final TextEditingController _contentCtrl = TextEditingController();
   String _selectedStyle = '캐릭터';
+  String _currentTmi = ''; // 모달 안에 표시할 현재 TMI
   bool _isEditMode = false; // 수정 모드 여부
+  Diary? _editDiary;
 
-  String? _questionText; // 질문 텍스트 상태
-  bool _isLoadingQuestion = false; // 질문 로딩 중 여부
+  String? _questionText; // 질문 텍스트 상태  //🌸
+  bool _isLoadingQuestion = false; // 질문 로딩 중 여부 🌸
+  bool _isLoading = false;
+  bool _hasWrittenToday = false;
 
   /// 로딩 애니메이션용 인덱스 (0, 1, 2 순환)
   int _loadingDotIndex = 0;
   int _loadingDotDirection = 1; // 방향 변수
   Timer? _loadingDotTimer;
 
+  final List<String> _tmiList = [];
+  // EventSource (SSE)
+  EventSource? _eventSource;
+  StreamSubscription<Event>? _eventSub;
+  // late final Diary _createdDiary;          // ← null 허용 X, 초기화 안 되면 크래시
+  Diary? _createdDiary; // ← null 허용
+  int? _createdDiaryId; // ← diary_num만 먼저 저장해 둘 때 사용
+
   /// “질문으로 일기 시작하기” 버튼 클릭 시 로딩 + 질문 표시
-  void _loadQuestion() {
+  void _startQuestionAnimation() {
     setState(() {
       _isLoadingQuestion = true;
       _questionText = null;
@@ -83,7 +101,7 @@ class _WritePageState extends State<WritePage> {
       _loadingDotTimer?.cancel();
       setState(() {
         _isLoadingQuestion = false;
-        _questionText = "오늘 가장 기뻤던 순간은?"; // 실제 API 호출 로직으로 교체 가능
+        // _questionText = "오늘 가장 기뻤던 순간은?"; // 실제 API 호출 로직으로 교체 가능
       });
     });
   }
@@ -92,10 +110,6 @@ class _WritePageState extends State<WritePage> {
   // CSV에서 읽어온 문구
   List<String> _facts = [];
   List<String> _balancePrompts = [];
-
-  /// ─────────────────────────────────────────────
-  // 글쓰기 하나로 제한하기
-  bool _hasWrittenToday = false;
 
   /// ─────────────────────────────────────────────
   // MemberInfoPage에서 저장된 아이템 개수를 SharedPreferences에서 불러올 변수
@@ -107,53 +121,44 @@ class _WritePageState extends State<WritePage> {
   @override
   void initState() {
     super.initState();
+    
+    _isEditMode = widget.editIdx != null;
 
-    // “수정 모드”로 넘겨받은 postIdx가 있으면, 수정 모드로 전환하고
-    // 기존 postContents, postStyles, postImages를 미리 세팅
-    if (widget.editIdx != null) {
-      final idx = widget.editIdx!;
-      _isEditMode = true;
-      // 기존에 작성된 내용을 텍스트 컨트롤러에 넣어두기
-      _contentCtrl.text = postContents[idx];
-      // 기존 스타일도 선택해 놓기
-      _selectedStyle = postStyles[idx];
-      // 기존 이미지가 있으면 _image에 세팅 (빈 XFile이라면 null 처리)
-      final existing = postImages[idx];
-      if (existing.path.isNotEmpty) {
-        _image = existing;
-      }
+    _baseUrl = dotenv.env['API_BASE_URL'] ?? "http://211.188.62.213:8000";
+
+    // if (_isEditMode) {
+    //   final idx = widget.editIdx!;
+    //   _contentCtrl.text = postContents[idx]; // 전역 리스트에서
+    //   _selectedStyle = postStyles[idx];
+    //   // _fetchDiaryAndSetup(widget.editIdx!);
+    // }
+
+    if (_isEditMode) {
+      // 비동기 fetch는 addPostFrameCallback으로 안전하게 호출!
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _fetchDiaryAndSetup(widget.editIdx!);
+      });
+    } else {
+      // 신규 작성 모드 - 상태를 모두 초기화
+      _contentCtrl.text = '';
+      _selectedStyle = '캐릭터';  // 또는 기본값
+      _image = null;
+      _editDiary = null;
+      // 필요하면 여기서 _checkWrittenToday()도 호출
     }
 
-    // SharedPreferences에서 보유 아이템 개수 불러오기 (초기 UI 반영용)
+    // 오늘 이미 일기를 썼는지 체크하는 함수 호출
+    _checkWrittenToday();
     _loadCountsFromPrefs();
-
-    // 서버에서 아이템 개수를 가져와서 상태 및 SharedPreferences 동기화
-    _loadCountsFromServer();
 
     // 글자 수 실시간 업데이트를 위해 컨트롤러 리스너 추가
     _contentCtrl.addListener(() {
       setState(() {});
     });
-
-    /// ─────────────────────────────────────────────
-    // 오늘 게시글 작성했는지 여부 체크하는 로직
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final today = DateTime.now();
-      final wrote = postDateTimes.any((d) =>
-          d.year == today.year && d.month == today.month && d.day == today.day);
-      // 수정 모드인 경우, _hasWrittenToday는 강제로 false로 두어
-      // 텍스트 입력창이 열린 상태를 유지하게 함
-      setState(() => _hasWrittenToday = _isEditMode ? false : wrote);
-    });
-
-    // CSV 프롬프트 읽기
-    _loadPrompts();
-
-    // .env에서 API_BASE_URL 가져오기
-    _baseUrl = dotenv.env['API_BASE_URL'] ?? "http://10.0.2.2:8000";
   }
+  
 
-  /// SharedPreferences에서 아이템 개수만 가져오기 (초기 UI 반영용)
+  /// SharedPreferences에서 MemberInfoPage가 저장해 둔 아이템 개수 불러오는 메서드
   Future<void> _loadCountsFromPrefs() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
@@ -162,44 +167,202 @@ class _WritePageState extends State<WritePage> {
     });
   }
 
-  /// 서버에서 사용자 정보를 GET → correction_tape_item, diary_item 가져와서 상태 및 SharedPreferences 동기화
-  Future<void> _loadCountsFromServer() async {
-    final prefs = await SharedPreferences.getInstance();
-    final userId = prefs.getString('userId');
-
-    if (userId == null || userId.isEmpty) return;
-
-    final uri = Uri.parse('$_baseUrl/api/users/$userId');
-
-    try {
-      final response = await http.get(uri);
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        final serverTapeCount = data['correction_tape_item'] as int? ?? 0;
-        final serverDiaryCount = data['diary_item'] as int? ?? 0;
-
-        // 로컬 상태에 반영
-        setState(() {
-          _correctionTapeCount = serverTapeCount;
-          _diaryCount = serverDiaryCount;
-        });
-
-        // SharedPreferences에도 동기화
-        await prefs.setInt('correctionTapeCount', serverTapeCount);
-        await prefs.setInt('diaryCount', serverDiaryCount);
-      } else {
-        print('사용자 정보 조회 실패 (HTTP ${response.statusCode}): ${response.body}');
-      }
-    } catch (e) {
-      print('사용자 정보 조회 중 오류: $e');
-    }
-  }
-
+  /// ─────────────────────────────────────────────
   @override
   void dispose() {
     _contentCtrl.dispose();
+    // 로딩 타이머와 PageController 정리
     _loadingDotTimer?.cancel();
+    // SSE 연결 해제
+    _eventSub?.cancel();
     super.dispose();
+  }
+
+  /// 1) 질문 로드
+  Future<void> _fetchRandomQuestion() async {
+    // setState(() {
+    //   _isLoadingQuestion = true;
+    //   _questionText = null;
+    //   _loadingDotIndex = 0;
+    // });
+    // _loadingDotTimer = Timer.periodic(const Duration(milliseconds: 600), (_) {
+    //   setState(() {
+    //     if (_loadingDotIndex == 2)
+    //       _loadingDotDirection = -1;
+    //     else if (_loadingDotIndex == 0) _loadingDotDirection = 1;
+    //     _loadingDotIndex += _loadingDotDirection;
+    //   });
+    // });
+    try {
+      final q =
+          await ApiService.getCustomizedQuestion(userId: widget.userId.toString());
+      _loadingDotTimer?.cancel();
+      setState(() {
+        _isLoadingQuestion = false;
+        _questionText = q;
+      });
+    } catch (e) {
+      _loadingDotTimer?.cancel();
+      setState(() => _isLoadingQuestion = false);
+      showDialog(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Text('질문 로드 실패'),
+          content: Text(e.toString()),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('확인'))
+          ],
+        ),
+      );
+    }
+  }
+
+  Future<void> _fetchDiaryAndSetup(int diaryNum) async {
+    try {
+      final diary = await ApiService.readDiary(diaryNum);
+      setState(() {
+        _editDiary = diary;
+        _contentCtrl.text = diary.content;
+        _selectedStyle = diary.styleId == 4 ? '캐릭터' : '일러스트';
+        // 만약 이미지나 기타 데이터도 있다면 여기에 세팅
+        // _image = diary.mergedPath != null ? XFile(diary.mergedPath!) : null;
+      });
+
+      final imgCount = diary.imgCount ?? 0;
+      if (imgCount >= 2) {
+        if (_correctionTapeCount <= 0) {
+          await showDialog(
+            context: context,
+            builder: (_) => AlertDialog(
+              title: const Text('수정 제한'),
+              content: const Text('수정테이프 아이템이 부족해 수정이 불가합니다.'),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('확인'),
+                ),
+              ],
+            ),
+          );
+          Navigator.of(context).pop(); // WritePage 나가기
+          return;
+        }
+
+        // 사용자 동의받고 차감
+        final use = await showDialog<bool>(
+          context: context,
+          builder: (_) => AlertDialog(
+            title: const Text('수정 아이템 사용'),
+            content: const Text('이미지 재생성이 3회 이상이므로\n수정테이프를 1개 사용해야 합니다.\n계속하시겠습니까?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('취소'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('사용'),
+              ),
+            ],
+          ),
+        );
+
+        if (use != true) {
+          Navigator.of(context).pop();
+          return;
+        }
+
+        // 실제 차감
+        final ok = await _useCorrectionTape();
+        if (!ok) {
+          await showDialog(
+            context: context,
+            builder: (_) => AlertDialog(
+              title: const Text('차감 실패'),
+              content: const Text('수정테이프 차감에 실패했습니다.'),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('확인'),
+                ),
+              ],
+            ),
+          );
+          Navigator.of(context).pop();
+          return;
+        }
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('일기를 불러오지 못했습니다.')),
+      );
+      Navigator.of(context).pop();
+    }
+  }
+
+  // 오늘 일기 썼는지 체크
+  Future<void> _checkWrittenToday() async {
+    if (_isEditMode) {
+      // 수정 모드일 때는 잠금 풀기!
+      setState(() {
+        _hasWrittenToday = false;
+      });
+      return;
+    }
+    // 유저 ID 가져오기
+    final userId = widget.userId;
+    // 오늘 날짜 구하기
+    final today = DateTime.now();
+    // 백엔드에서 오늘 쓴 일기 fetch
+    final diaries = await ApiService.fetchDiariesForDate(userId, today);
+    setState(() {
+      _hasWrittenToday = diaries.isNotEmpty;
+    });
+  }
+
+  // 일기장 아이템 사용
+  Future<bool> _useDiaryItem() async {
+    final prefs = await SharedPreferences.getInstance();
+    final userId = prefs.getString('userId');
+    if (_diaryCount <= 0 || userId == null || userId.isEmpty) return false;
+
+    setState(() {
+      _diaryCount -= 1;
+    });
+    await prefs.setInt('diaryCount', _diaryCount);
+
+    // 서버 동기화
+    final uri = Uri.parse("$_baseUrl/api/users/$userId");
+    final res = await http.patch(
+      uri,
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'diary_item': _diaryCount}),
+    );
+    return res.statusCode == 200;
+  }
+
+// 수정테이프 아이템 사용
+  Future<bool> _useCorrectionTape() async {
+    final prefs = await SharedPreferences.getInstance();
+    final userId = prefs.getString('userId');
+    if (_correctionTapeCount <= 0 || userId == null || userId.isEmpty)
+      return false;
+
+    setState(() {
+      _correctionTapeCount -= 1;
+    });
+    await prefs.setInt('correctionTapeCount', _correctionTapeCount);
+
+    // 서버 동기화
+    final uri = Uri.parse("$_baseUrl/api/users/$userId");
+    final res = await http.patch(
+      uri,
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'correction_tape_item': _correctionTapeCount}),
+    );
+    return res.statusCode == 200;
   }
 
   /// ─────────────────────────────────────────────
@@ -233,9 +396,11 @@ class _WritePageState extends State<WritePage> {
   String get _randomPrompt {
     final rnd = Random();
     if (_facts.isNotEmpty && _balancePrompts.isNotEmpty) {
-      return rnd.nextBool()
-          ? _facts[rnd.nextInt(_facts.length)]
-          : _balancePrompts[rnd.nextInt(_balancePrompts.length)];
+      if (rnd.nextBool()) {
+        return _facts[rnd.nextInt(_facts.length)];
+      } else {
+        return _balancePrompts[rnd.nextInt(_balancePrompts.length)];
+      }
     }
     if (_facts.isNotEmpty) return _facts[rnd.nextInt(_facts.length)];
     if (_balancePrompts.isNotEmpty) {
@@ -244,109 +409,270 @@ class _WritePageState extends State<WritePage> {
     return '';
   }
 
-  /// ─────────────────────────────────────────────
-  /// “완료” 버튼 눌렀을 때(1) : 모달 띄우고 10초 슬립 후 DetailPage로 이동
-  /// “완료” 버튼 눌렀을 때(2) : 새 작성인지 수정인지 분기
-  Future<void> _onSubmit() async {
-    final prefs = await SharedPreferences.getInstance();
-    final String? userId = prefs.getString('userId');
+  /// 백엔드 /diaries/stream 에 POST → TMI+이미지 스트림 수신
+  Future<void> _startDiaryStream() async {
+    // late void Function(VoidCallback) setStateModal;
 
-    final prompt = _randomPrompt;
-    // ++ 06/11 백그라운드 태스크로 “생성” 작업을 위임합니다.
-    Workmanager().registerOneOffTask(
-      'creationTask', // unique name
-      'doCreation', // callback 이름 (callbackDispatcher 에서 같은 이름)
-      existingWorkPolicy: ExistingWorkPolicy.replace, // ▶ 덮어쓰기
-      initialDelay: Duration.zero,
-      inputData: {
-        // 필요시 서버 파라미터나 스타일 정보 등 전달
-        'style': _selectedStyle,
-        'content': _contentCtrl.text.trim(),
-      },
-    );
+    String dialogField = '';
+    String dialogContent = '';
+    late StateSetter dialogSetState;
 
-    // 1) 모달 띄우기
+    // 1) 로딩 모달 띄우기
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (_) => LoadingModal(prompt: prompt),
+      builder: (_) => StatefulBuilder(
+        builder: (_, setState) {
+          dialogSetState = setState;
+          return AlertDialog(
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const CircularProgressIndicator(),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    const Text('💡알쓸신잡!'),
+                    const SizedBox(width: 8),
+                    Text(dialogField,
+                        style: const TextStyle(fontWeight: FontWeight.bold)),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(dialogContent, textAlign: TextAlign.center),
+              ],
+            ),
+          );
+        },
+      ),
     );
-    // 2) 10초 기다림 (프로토타입)
-    await Future.delayed(const Duration(seconds: 10));
-    // 3) 모달 닫기
-    Navigator.of(context).pop();
 
+    try {
+      final diaryDate = DateFormat('yyyy-MM-dd').format(DateTime.now());
+      // (2) 스트림 전용 엔드포인트 호출 (생성/수정 공용)
+      final streamClient = _isEditMode
+          ? await ApiService.updateDiaryWithStream(
+              diaryNum: widget.editIdx!,
+              styleId: _selectedStyle == '캐릭터' ? 4 : 2,
+              diaryDate: diaryDate,
+              content: _contentCtrl.text.trim(),
+            )
+          : await ApiService.createDiaryWithStream(
+              userId: widget.userId.toString(),
+              styleId: _selectedStyle == '캐릭터' ? 4 : 2,
+              diaryDate: diaryDate,
+              content: _contentCtrl.text.trim(),
+            );
+      // 3) 스트림 구독
+      _eventSub = streamClient.listen((evt) async {
+        final name = evt.event ?? '';
+        final data = evt.data ?? '';
+
+        print('[SSE 이벤트 수신] name: $name, data: $data');
+
+        if (name == 'diary_created') {
+          // // 최초 이벤트: Diary 객체 전체
+          // try {
+          //   _createdDiary = Diary.fromJson(jsonDecode(data));
+          //   _createdDiaryId = _createdDiary!.diaryNum;
+          // } catch (_) {
+          //   // 혹시 JSON 파싱에 실패해도 최소한 diary_num 은 챙겨 둔다
+          //   _createdDiaryId = (jsonDecode(data) as Map)['diary_num'] as int?;
+          // }
+          // return;                         // ← 여기서 끝
+          final map = jsonDecode(data) as Map<String, dynamic>;
+          _createdDiary = Diary.fromJson(jsonDecode(data));
+          // 여기서 diaryNum 필드를 ID 변수에도 저장
+          _createdDiaryId = map['diary_num'] ?? map['diaryNum'];
+          print('[diary_created] diary_num: $_createdDiaryId');
+          return;
+        }
+        if (name.isEmpty) {
+          dialogSetState(() {
+            // dialogField   = '';    // 필요 없으면 빈 문자열로
+            dialogContent = data; // 데이터 그대로 표시
+          });
+          return;
+        }
+        if (name == 'image_done') {
+          print('[image_done] 호출됨! DetailPage로 이동 시도');
+          // 반드시 rootNavigator: true로 pop
+          Navigator.of(context, rootNavigator: true).pop();
+
+          WidgetsBinding.instance.addPostFrameCallback((_) async {
+            // context: navigatorKey.currentContext를 사용 (안전)
+            final navContext = navigatorKey.currentContext ?? context;
+            if (_createdDiary != null) {
+              Navigator.of(navContext).pushReplacement(
+                MaterialPageRoute(
+                    builder: (_) => DetailPage(
+                          diary: _createdDiary!,
+                          source: 'home',
+                          reward: 0,
+                        )),
+              );
+            } else if (_createdDiaryId != null) {
+              try {
+                final fallback = await ApiService.readDiary(_createdDiaryId!);
+                Navigator.of(navContext).pushReplacement(
+                  MaterialPageRoute(
+                      builder: (_) => DetailPage(
+                            diary: fallback,
+                            source: 'home',
+                            reward: 0,
+                          )),
+                );
+              } catch (_) {
+                ScaffoldMessenger.of(navContext).showSnackBar(
+                  const SnackBar(content: Text('일기 정보를 불러올 수 없습니다.')),
+                );
+              }
+            } else {
+              ScaffoldMessenger.of(navContext).showSnackBar(
+                const SnackBar(content: Text('일기 정보를 불러올 수 없습니다.')),
+              );
+            }
+          });
+
+          await _eventSub?.cancel();
+          return;
+        }
+      }); // ───── listen 콜백 닫기
+    } catch (e) {
+      Navigator.of(context, rootNavigator: true).pop();
+      await showDialog(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Text('요청 실패'),
+          content: Text(e.toString()),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('확인')),
+          ],
+        ),
+      );
+    }
+  }
+
+  /// ─────────────────────────────────────────────
+  /// “완료” 버튼 눌렀을 때(1) : 모달 띄우고 10초 슬립 후 DetailPage로 이동
+  ///  “완료” 버튼 눌렀을 때(2) : 새 작성인지 수정인지 분기
+  Future<void> _onSubmit() async {
+    late final Diary createdDiary;
+    final prompt = _randomPrompt;
+
+    // 1) 로딩 모달 띄우기
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => Center(child: LoadingModal(prompt: prompt)),
+    );
+
+    try {
+      setState(() => _isLoading = true);
+      // 2) 실제 POST 요청 (30초 이상 걸리면 에러)
+      createdDiary = await ApiService.createDiary(
+        userId: widget.userId.toString(),
+        styleId: _selectedStyle == '캐릭터' ? 4 : 2,
+        diaryDate: DateFormat('yyyy-MM-dd').format(DateTime.now()),
+        content: _contentCtrl.text.trim(),
+      ).timeout(
+        const Duration(seconds: 60),
+        onTimeout: () => throw Exception('요청 시간이 60초를 초과했습니다.'),
+      );
+
+      // 3) 모달 닫고 상세 페이지로 이동
+      Navigator.of(context).pop();
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (_) => DetailPage(
+            diary: createdDiary,
+            source: 'home',
+            reward: 0,
+          ),
+        ),
+      );
+    } catch (e) {
+      // 에러 시 모달 닫고 다이얼로그
+      Navigator.of(context).pop();
+      await showDialog(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Text('오류'),
+          content: Text('일기 작성에 실패했습니다.\n$e'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('확인'),
+            ),
+          ],
+        ),
+      );
+    } finally {
+      setState(() => _isLoading = false);
+    }
+
+    // final now = DateTime.now();
+    // int rewardGiven = 0;
+
+    // 수정인지 신규인지에 따라 rewardGiven, gotoIdx 계산
     final now = DateTime.now();
     int rewardGiven = 0;
+    int gotoIdx;
 
     if (_isEditMode) {
-      // ── 수정 모드 로직 ──
+      // 1) 수정 모드 : 기존 리스트에 덮어쓰기
       final idx = widget.editIdx!;
       postContents[idx] = _contentCtrl.text.trim();
       postStyles[idx] = _selectedStyle;
       postImages[idx] = _image ?? XFile('');
-      // 필요하다면 postDateTimes[idx] = now;
-      final todayKey = now.toIso8601String().split('T')[0];
+      // 작성 시간은 그대로 두거나, 원한다면 다음 줄처럼 변경할 수도 있음
+      // postDateTimes[idx] = now;
+
+      // 수정 시 보상 없음
+      gotoIdx = idx;
+
+      // “수정 완료” 시점에 SharedPreferences에 lastEditDate 기록
+      final prefs = await SharedPreferences.getInstance();
+      final todayKey = now.toIso8601String().split('T').first;
       await prefs.setString('lastEditDate', todayKey);
     } else {
-      // ── 신규 모드 로직 ──
+      // 신규 모드: 기존 로직대로 append
       postImages.add(_image ?? XFile(''));
       postContents.add(_contentCtrl.text.trim());
       postDateTimes.add(now);
       postStyles.add(_selectedStyle);
+      gotoIdx = postContents.length - 1;
 
       // 신규 작성이기 때문에 하루 1회 30크레딧 지급
-      final todayKey = now.toIso8601String().split('T')[0];
+      final prefs = await SharedPreferences.getInstance();
+      final todayKey = now.toIso8601String().split('T').first;
       final lastGiven = prefs.getString('lastDiaryCreditDate') ?? '';
       if (lastGiven != todayKey) {
-        // 1) 로컬 SharedPreferences 크레딧 업데이트
         final prevCredit = prefs.getInt('userCredit') ?? 0;
         await prefs.setInt('userCredit', prevCredit + 30);
         await prefs.setString('lastDiaryCreditDate', todayKey);
         rewardGiven = 30;
-
-        // 2) 서버에도 크레딧 +30 반영
-        if (userId != null && rewardGiven > 0) {
-          final url = Uri.parse('$_baseUrl/api/users/$userId/credit');
-          try {
-            final response = await http.post(
-              url,
-              headers: {
-                'Content-Type': 'application/json',
-                // 인증 토큰이 필요하면 여기에 추가:
-                // 'Authorization': 'Bearer ${prefs.getString('accessToken')}',
-              },
-              body: jsonEncode({'amount': rewardGiven}),
-            );
-
-            if (response.statusCode == 200) {
-              final body = jsonDecode(response.body);
-              final updatedCredit = body['credit'] as int;
-              print('서버에서 갱신된 크레딧: $updatedCredit');
-              // 서버에서 받아온 최종 credit으로 로컬에도 덮어써 두면 동기화가 됩니다.
-              await prefs.setInt('userCredit', updatedCredit);
-            } else {
-              print(
-                  '크레딧 갱신 실패 (HTTP ${response.statusCode}): ${response.body}');
-            }
-          } catch (e) {
-            print('크레딧 갱신 중 오류: $e');
-          }
-        }
       }
     }
 
-    // ── 완료 후 DetailPage로 이동 ──
-    final gotoIdx = _isEditMode ? widget.editIdx! : postContents.length - 1;
+    // 완료 후 상세 페이지로 이동 (수정 모드면 같은 idx, 신규면 새 idx)
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(
-        builder: (context) => const DetailPage(),
+        builder: (context) => DetailPage(
+          diary: createdDiary, // ← 필수
+          source: 'home', // ← 선택
+          reward: rewardGiven,
+        ),
         settings: RouteSettings(
           arguments: {
             'idx': gotoIdx,
             'reward': rewardGiven, // 하루 1회 30 크레딧
-            'source': 'home',
           },
         ),
       ),
@@ -375,34 +701,34 @@ class _WritePageState extends State<WritePage> {
 
     // WillPopScope로 감싸서, 뒤로가기(onWillPop) 콜백을 가로챕니다.
     return WillPopScope(
+      // onWillPop: () async => true,
       onWillPop: _onWillPop,
       child: Scaffold(
-        /// ─────────────────────────────────────────────
-        resizeToAvoidBottomInset: false, // 키보드가 올라올때 바디 못밀게 막기
-        appBar: AppBar(
-          leadingWidth: 120,
-          // 아이콘 두 개 공간 확보
-          leading: Row(
-            children: [
-              // 보유 아이템 개수 (서버 동기화된 _correctionTapeCount, _diaryCount)
-              const SizedBox(width: 12), // 좌측 여백
-              ItemCountIcon(
-                imagePath: 'assets/items/correction tape.png',
-                count: _correctionTapeCount,
+      resizeToAvoidBottomInset: false,
+      appBar: AppBar(
+        leadingWidth: _isEditMode ? null : 120,  // 수정모드면 기본(56), 작성모드만 넓게!s
+        leading: _isEditMode
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: () => Navigator.of(context).pop(),
+              )
+            : Row(
+                children: [
+                  const SizedBox(width: 12),
+                  ItemCountIcon(
+                      imagePath: 'assets/items/correction tape.png',
+                      count: _correctionTapeCount),
+                  const SizedBox(width: 8),
+                  ItemCountIcon(
+                      imagePath: 'assets/items/diary.png', count: _diaryCount),
+                ],
               ),
-              const SizedBox(width: 8),
-              ItemCountIcon(
-                imagePath: 'assets/items/diary.png',
-                count: _diaryCount,
-              ),
-            ],
-          ),
-          title: const Text('새 일기 쓰기'),
-          centerTitle: true,
-          iconTheme: const IconThemeData(color: Colors.black),
-          automaticallyImplyLeading: !_hasWrittenToday,
-        ),
-
+        title: Text(_isEditMode ? '일기 수정하기' : '새 일기 쓰기'),
+        centerTitle: true,
+        iconTheme: const IconThemeData(color: Colors.black),
+        automaticallyImplyLeading: !_hasWrittenToday,
+      ),
+     
         /// ─────────────────────────────────────────────
         body: DoubleBackToExit(
           child: SingleChildScrollView(
@@ -431,15 +757,19 @@ class _WritePageState extends State<WritePage> {
                       Row(
                         children: [
                           Image.asset(
-                            'assets/stamps/stamp_happy.gif',
+                            'assets/stamps/stamp_happy2.png',
                             width: 30,
                             height: 30,
                           ),
                           const SizedBox(width: 0),
+
                           TextButton(
                             onPressed: (_hasWrittenToday || _isLoadingQuestion)
                                 ? null
-                                : _loadQuestion,
+                                : () {
+                                    _startQuestionAnimation();
+                                    _fetchRandomQuestion();
+                                  },
                             child: const Text(
                               '질문으로 일기 시작하기',
                               style: TextStyle(
@@ -449,8 +779,12 @@ class _WritePageState extends State<WritePage> {
                               ),
                             ),
                           ),
+
+                          // 로딩 중일 때만 점프 애니메이션 노출
                           if (_isLoadingQuestion) ...[
                             const SizedBox(width: 0),
+
+                            // AnimatedSmoothIndicator 사용
                             SizedBox(
                               width: 20, // dotWidth*3 + spacing*2 정도 크기
                               height: 12, // dotHeight 정도 높이
@@ -471,7 +805,10 @@ class _WritePageState extends State<WritePage> {
                           ],
                         ],
                       ),
+
                       const SizedBox(height: 0),
+
+                      // 로딩 끝난 뒤 질문 표시
                       if (!_isLoadingQuestion && _questionText != null) ...[
                         Padding(
                           padding: const EdgeInsets.symmetric(
@@ -487,8 +824,22 @@ class _WritePageState extends State<WritePage> {
                     ],
                   ),
 
+                  // ─────────────────────────────────────────────
+                  // // 스트리밍으로 들어온 TMI를 화면에 순차 출력
+                  // if (_tmiList.isNotEmpty) ...[
+                  //   const SizedBox(height: 16),
+                  //   for (var msg in _tmiList)
+                  //     Padding(
+                  //       padding: const EdgeInsets.symmetric(vertical: 4),
+                  //       child: ChatBubble(
+                  //         text: msg,
+                  //         isSender: false,
+                  //       ),
+                  //     ),
+                  // ],
+
                   /// ─────────────────────────────────────────────
-                  // 텍스트 입력박스 + 잠금해제 버튼
+                  // 텍스트 입력박스 + + 잠금해제 버튼
                   Container(
                     height: 350,
                     decoration: BoxDecoration(
@@ -501,12 +852,13 @@ class _WritePageState extends State<WritePage> {
                       fit: StackFit.expand,
                       children: [
                         TextField(
-                          enabled: !_hasWrittenToday,
+                          onChanged: (_) => setState(() {}), // 실시간 글쓰기 카운트 출력부
+                          enabled: !_hasWrittenToday || _isEditMode,
                           controller: _contentCtrl,
                           style: const TextStyle(
                             fontSize: 16,
                             height: 1.5,
-                            fontFamily: 'assets/fonts/온글잎 혜련.ttf',
+                            fontFamily: '온글잎 혜련',
                           ),
                           maxLines: null,
                           expands: true,
@@ -534,40 +886,54 @@ class _WritePageState extends State<WritePage> {
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(7),
                               borderSide: const BorderSide(
-                                color: Colors.white,
+                                color: Colors.white, //<— 비활성 상태 테두리 색
                                 width: 1,
                               ),
                             ),
 
-                             /// ─────────────────────────────────────────────
+                            /// ─────────────────────────────────────────────
                             // 포커스 받았을 때 테두리
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(7),
                               borderSide: const BorderSide(
-                                color: Color(0xFFD3D3D3),
+                                color: Color(0xFFD3D3D3), //<— 포커스 상태 테두리 색
                                 width: 2,
                               ),
                             ),
+
+                            /// ─────────────────────────────────────────────
                           ),
                         ),
 
                         // 잠금된 상태일 때만 보여주는 ‘+잠금해제’ 버튼
-                        if (_hasWrittenToday)
+                        if (_hasWrittenToday && !_isEditMode)
                           Center(
                             child: ElevatedButton.icon(
                               icon: const Icon(Icons.lock_open),
                               label: const Text('+ 잠금해제'),
-                              onPressed: () {
-                                UnlockDialogs.showUnlockDiaryDialog(
-                                  context: context,
-                                  currentDiaryCount: _diaryCount,
-                                  onUnlocked: () {
-                                    setState(() {
-                                      _hasWrittenToday = false;
-                                      _diaryCount--; // ✅ 바로 차감
-                                    });
-                                  },
-                                );
+                              onPressed: () async {
+                                final ok = await _useDiaryItem();
+                                if (ok) {
+                                  setState(() {
+                                    _hasWrittenToday = false;
+                                  });
+                                } else {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                        content: Text('일기장 아이템이 부족합니다!')),
+                                  );
+                                }
+                                // 분리된 다이얼로그 메서드 호출
+                                // UnlockDialogs.showUnlockDiaryDialog(
+                                //   context: context,
+                                //   currentDiaryCount: _diaryCount,
+                                //   onUnlocked: () {
+                                //     // 잠금 해제되면 _hasWrittenToday = false 처리
+                                //     setState(() {
+                                //       _hasWrittenToday = false;
+                                //     });
+                                //   },
+                                // );
                               },
                               style: ElevatedButton.styleFrom(
                                 foregroundColor: Colors.black87,
@@ -623,10 +989,17 @@ class _WritePageState extends State<WritePage> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.start,
                     children: [
+                      // _buildRadio('애니', _selectedStyle, (v) {
+                      //   setState(() => _selectedStyle = v!);
+                      // }),
                       const SizedBox(width: 10),
                       _buildRadio('캐릭터', _selectedStyle, (v) {
                         setState(() => _selectedStyle = v!);
                       }),
+                      // const SizedBox(width: 5),
+                      // _buildRadio('수채화', _selectedStyle, (v) {
+                      //   setState(() => _selectedStyle = v!);
+                      // }),
                       const SizedBox(width: 10),
                       _buildRadio('일러스트', _selectedStyle, (v) {
                         setState(() => _selectedStyle = v!);
@@ -641,21 +1014,26 @@ class _WritePageState extends State<WritePage> {
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
                       TextButton(
+                        // 완료 버튼 동작 구현
                         onPressed: _hasWrittenToday
                             ? null
                             : () async {
+                                // 1) 내용 가져와서 앞뒤 공백 제거
                                 final content = _contentCtrl.text.trim();
+                                // 2) 비어있거나 100자 미만이면 경고
                                 if (content.isEmpty || content.length < 100) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     const SnackBar(
                                       content: Text('일기를 최소 100자 이상 입력해주세요.'),
                                     ),
                                   );
-                                  return;
+                                  return; // 밑의 _onSubmit 호출 안 함
                                 }
+                                // 1) 오토툰 생성 확인
                                 final ok =
                                     await showCreateConfirmDialog(context);
                                 if (!ok) {
+                                  // 확인을 못받았을 때: 오류 다이얼로그 띄우기
                                   await showDialog(
                                     context: context,
                                     builder: (_) => AlertDialog(
@@ -670,9 +1048,33 @@ class _WritePageState extends State<WritePage> {
                                       ],
                                     ),
                                   );
-                                  return;
+                                  return; // _onSubmit 호출하지 않고 함수 종료
                                 }
-                                await _onSubmit();
+
+                                // **여기서 수정모드+imgCount>=3이면 차감!**
+                                print('editDiary: $_editDiary, imgCount: ${_editDiary?.imgCount}');
+                                if (_isEditMode && (_editDiary?.imgCount ?? 0) >= 3) {
+                                  final tapeOk = await _useCorrectionTape();
+                                  if (!tapeOk) {
+                                    await showDialog(
+                                      context: context,
+                                      builder: (_) => AlertDialog(
+                                        title: const Text('수정테이프 부족'),
+                                        content: const Text('수정테이프 아이템이 부족해 수정이 불가합니다.'),
+                                        actions: [
+                                          TextButton(
+                                            onPressed: () => Navigator.of(context).pop(),
+                                            child: const Text('확인'),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                    return;
+                                  }
+                                }
+
+                                // 2) 확인 받았으면 원래 로딩/이동 로직 실행
+                                await _startDiaryStream();
                               },
                         child: const Text(
                           '완료',
@@ -687,6 +1089,7 @@ class _WritePageState extends State<WritePage> {
                   ),
 
                   /// ─────────────────────────────────────────────
+                  // 안내 텍스트
                   const SizedBox(height: 10),
                   const Text(
                     '일기 생성은 2-3분 정도 소요될 수 있어요:D',

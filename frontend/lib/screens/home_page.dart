@@ -9,12 +9,16 @@ import 'write_page.dart' // postImages / postDateTimes
         postDateTimes;
 import '../widgets/double_back_to_exit.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:dx_project_dev2/models/diary_model.dart';
+import 'package:dx_project_dev2/services/api_service.dart';
 
 // 최신순, 오래된순
 enum SortOption { latest, oldest }
 
 class MainPage extends StatefulWidget {
-  const MainPage({Key? key}) : super(key: key);
+  final int userId;
+
+  const MainPage({Key? key, required this.userId}) : super(key: key);
 
   @override
   State<MainPage> createState() => _MainPageState();
@@ -22,21 +26,15 @@ class MainPage extends StatefulWidget {
 
 class _MainPageState extends State<MainPage> {
   SortOption _sort = SortOption.latest;
-
-  /// 정렬된 인덱스 리스트를 만들어 두면 detail 로 넘길 때 편하다
-  List<int> get _sortedIndexes {
-    final idx = List<int>.generate(postImages.length, (i) => i);
-    idx.sort((a, b) {
-      final cmp = postDateTimes[a].compareTo(postDateTimes[b]);
-      return _sort == SortOption.latest ? -cmp : cmp; // 최신순==내림차순
-    });
-    return idx;
-  }
+  List<Diary> _diaries = []; // ① 서버에서 받아올 리스트
+  bool _loading = true; // ② 로딩 스피너 표시용
+  String? _error; // ③ 에러 텍스트 표시용
 
   /// ──────────────────────────────────────────────────────────
   @override
   void initState() {
     super.initState();
+    _loadDiaries();
     // 첫 번째 프레임이 그려진 뒤 출석 체크 로직을 한 번 실행
     WidgetsBinding.instance.addPostFrameCallback((_) {
       // AttendanceHelper.checkAttendance(context);
@@ -60,10 +58,79 @@ class _MainPageState extends State<MainPage> {
     await AttendanceHelper.checkAttendance(context, storedUserId);
   }
 
+  /// 정렬된 인덱스 리스트를 만들어 두면 detail 로 넘길 때 편하다
+  // List<int> get _sortedIndexes {
+  //   final idx = List<int>.generate(_diaries.length, (i) => i);
+  //   idx.sort((a, b) {
+  //     // final cmp = postDateTimes[a].compareTo(postDateTimes[b]);
+  //     final cmp = _diaries[a].diaryDate.compareTo(_diaries[b].diaryDate);
+  //     return _sort == SortOption.latest ? -cmp : cmp; // 최신순==내림차순
+  //   });
+  //   return idx;
+  // }
+
+  List<Diary> get _sortedDiaries {
+    List<Diary> diaries = List.from(_diaries);
+    diaries.sort((a, b) {
+      final cmp = a.diaryDate.compareTo(b.diaryDate);
+      return _sort == SortOption.latest ? -cmp : cmp;
+    });
+    return diaries;
+  }
+
+  Future<void> _loadDiaries() async {
+    try {
+      _diaries = await ApiService.fetchUserDiaries(widget.userId);
+    } catch (e) {
+      _error = '$e';
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Widget _buildList() {
+    // final indexes = _sortedIndexes;
+    final diaries = _sortedDiaries;
+    // 최신 3개만 보여줌 (diaries가 3개 미만이어도 안전하게)
+    final displayList = diaries.take(3).toList();
+    
+    return ListView.separated(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      itemCount: diaries.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 24),
+      itemBuilder: (_, idx) {
+        final d = diaries[idx];
+        final thumbUrl =
+            ApiService.fullImageUrl(d.thumbPath ?? d.mergedPath ?? '');
+
+        return GestureDetector(
+          onTap: () => Navigator.pushNamed(
+            context,
+            '/detail',
+            arguments: {'diary': d, 'reward': 0, 'source': 'home'},
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(DateFormat('yyyy.MM.dd').format(d.diaryDate),
+                  style: const TextStyle(
+                      fontSize: 16, fontWeight: FontWeight.w600)),
+              const SizedBox(height: 8),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(0),
+                child: _buildThumb(thumbUrl),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   /// ──────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
-    final indexes = _sortedIndexes;
+    // final indexes = _sortedIndexes;
 
     return Scaffold(
       /// ───────────────── AppBar ──────────────────────
@@ -76,6 +143,7 @@ class _MainPageState extends State<MainPage> {
             color: Colors.black,
           ),
         ),
+        automaticallyImplyLeading: false,
         actions: [
           // 정렬 드롭다운
           Row(
@@ -115,54 +183,76 @@ class _MainPageState extends State<MainPage> {
       ),
 
       /// ───────────────── Body ──────────────────────
-      body: DoubleBackToExit(
-        child: postImages.isEmpty
-            ? const Center(child: Text('작성한 일기가 없습니다'))
-            : ListView.separated(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                itemCount: indexes.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 24),
-                itemBuilder: (_, listIdx) {
-                  final realIdx = indexes[listIdx];
-                  final date = postDateTimes[realIdx];
-                  final img = postImages[realIdx];
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : (_error != null)
+              ? Center(child: Text('오류: $_error'))
+              : (_diaries.isEmpty)
+                  ? const Center(child: Text('작성한 일기가 없습니다'))
+                  : _buildList(),
+      // DoubleBackToExit(
+      //   child: postImages.isEmpty
+      //       ? const Center(child: Text('작성한 일기가 없습니다'))
+      //       : ListView.separated(
+      //           padding:
+      //               const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      //           itemCount: indexes.length,
+      //           separatorBuilder: (_, __) => const SizedBox(height: 24),
+      //           itemBuilder: (_, listIdx) {
+      //             final realIdx = indexes[listIdx];
+      //             final date = postDateTimes[realIdx];
+      //             final img = postImages[realIdx];
 
-                  return GestureDetector(
-                    onTap: () =>
-                        Navigator.pushNamed(context, '/detail', arguments: {
-                      'idx': realIdx,
-                      'reward': 0, // 보상이 없으면 0
-                      'source': 'home'
-                    } // detail_page 는 단일 index 처리
-                            ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // 날짜 헤더
-                        Text(
-                          DateFormat('yyyy.MM.dd').format(date),
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        // 썸네일 (가로꽉차게 1칸)
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(16),
-                          child: Image.file(
-                            File(img.path),
-                            width: double.infinity,
-                            fit: BoxFit.cover,
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              ),
-      ),
+      //             return GestureDetector(
+      //               onTap: () =>
+      //                   Navigator.pushNamed(context, '/detail', arguments: {
+      //                 'idx': realIdx,
+      //                 'reward': 0, // 보상이 없으면 0
+      //                 'source': 'home'
+      //               } // detail_page 는 단일 index 처리
+      //                       ),
+      //               child: Column(
+      //                 crossAxisAlignment: CrossAxisAlignment.start,
+      //                 children: [
+      //                   // 날짜 헤더
+      //                   Text(
+      //                     DateFormat('yyyy.MM.dd').format(date),
+      //                     style: const TextStyle(
+      //                       fontSize: 16,
+      //                       fontWeight: FontWeight.w600,
+      //                     ),
+      //                   ),
+      //                   const SizedBox(height: 8),
+      //                   // 썸네일 (가로꽉차게 1칸)
+      //                   ClipRRect(
+      //                     borderRadius: BorderRadius.circular(16),
+      //                     child: Image.file(
+      //                       File(img.path),
+      //                       width: double.infinity,
+      //                       fit: BoxFit.cover,
+      //                     ),
+      //                   ),
+      //                 ],
+      //               ),
+      //             );
+      //           },
+      //         ),
+      // ),
     );
+  }
+
+  Widget _buildThumb(String path, {double? height}) {
+    if (path.isEmpty) {
+      return ColoredBox(
+        color: Colors.grey,
+        child: SizedBox(width: double.infinity, height: height ?? 160),
+      );
+    }
+    final uri = Uri.tryParse(path);
+    final isNet =
+        uri != null && (uri.scheme == 'http' || uri.scheme == 'https');
+    return isNet
+        ? Image.network(path, fit: BoxFit.cover, width: double.infinity)
+        : Image.file(File(path), fit: BoxFit.cover, width: double.infinity);
   }
 }

@@ -8,6 +8,9 @@ import 'package:dx_project_dev2/widgets/StatusBar_Reminder.dart'; // 06/11 ++
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import '../utils/bluetooth_classic.dart';
+import '../models/diary_model.dart'; 
+import 'package:flutter_bluetooth_serial/flutter_bluetooth_serial.dart';
 
 // 알림창(dialog)들은 여기에 추가하겠습니당. 모달창은 따로에요! - 모달창은 확인, 취소가 없는 창
 /// ──────────────── calendar_page.dart ───────────────────
@@ -957,6 +960,68 @@ class DetailAlertDialogs {
       // 삭제가 끝난 뒤 호출 측에서 화면을 갱신할 수 있도록 콜백 실행
       onDeleted();
     }
+  }
+
+  /// ─────────────────────────────── // 06/14 ++ 추가
+  /// 감정 색상 조명 제어 다이얼로그 (detail_page.dart에서 호출)
+  /// 감정 색상 조명 제어 다이얼로그
+  static Future<void> showEmotionLightDialog({
+    required BuildContext context,
+    required String emotionTag,
+  }) async {
+    // 1) 블루투스 켜기 요청
+    if (!await BluetoothClassicHelper.ensureEnabled(context)) return;
+
+    // 2) 페어링된 조명 모듈 리스트
+    final devices = await BluetoothClassicHelper.getPairedLights();
+    if (devices.isEmpty) {
+      await showDialog(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Text('장치 없음'),
+          content: const Text('설정에서 조명 장치를 페어링해 주세요.'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('확인'))
+          ],
+        ),
+      );
+      return;
+    }
+
+    // 3) 사용자에게 리스트 보여주고 선택
+    final selected = await showDialog<BluetoothDevice>(
+      context: context,
+      builder: (_) => SimpleDialog(
+        title: const Text('조명 기기를 선택하세요'),
+        children: devices.map((d) => SimpleDialogOption(
+          child: Text(d.name ?? d.address),
+          onPressed: () => Navigator.pop(context, d),
+        )).toList(),
+      ),
+    );
+    if (selected == null) return;
+
+    // 4) 확인 다이얼로그
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('감정 조명'),
+        content: const Text('오늘의 감정을 조명에 전송하시겠습니까?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('취소')),
+          TextButton(onPressed: () => Navigator.pop(context, true),  child: const Text('확인')),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+
+    // 5) RGB(idx) 생성 & 전송
+    final idx = BluetoothClassicHelper.emotionTagToRgb(emotionTag);
+    final ok  = await BluetoothClassicHelper.sendColor(selected, idx);
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(ok ? '전송 성공!' : '전송 실패')),
+    );
   }
 }
 

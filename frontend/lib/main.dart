@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:dx_project_dev2/screens/history_page.dart';
-import 'package:dx_project_dev2/widgets/StatusBar_Reminder.dart';  // 06/11 ++ 추가
+import 'package:dx_project_dev2/widgets/StatusBar_Reminder.dart'; // 06/11 ++ 추가
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -19,17 +19,21 @@ import 'package:dx_project_dev2/screens/write_page.dart';
 import 'package:dx_project_dev2/theme/app_theme.dart';
 import 'package:dx_project_dev2/widgets/bottom_nav.dart';
 
-import 'package:timezone/data/latest_all.dart' as tz;  // 06/11 ++ 추가
-import 'package:timezone/timezone.dart' as tz;   // 06/11 ++ 추가
+import 'package:timezone/data/latest_all.dart' as tz; // 06/11 ++ 추가
+import 'package:timezone/timezone.dart' as tz; // 06/11 ++ 추가
 
-import 'package:dx_project_dev2/widgets/notification_service.dart';   // 06/11 ++ 추가
-import 'package:workmanager/workmanager.dart';    // 06/11 ++ 추가
+import 'package:dx_project_dev2/widgets/notification_service.dart'; // 06/11 ++ 추가
+import 'package:workmanager/workmanager.dart'; // 06/11 ++ 추가
 
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:kakao_flutter_sdk_user/kakao_flutter_sdk_user.dart';
 import 'kakao_login_page.dart';
 import 'package:flutter_web_plugins/url_strategy.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:dx_project_dev2/models/diary_model.dart';
+
+// ─── ① 전역 NavigatorKey 선언 ─────────────────────
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -54,7 +58,7 @@ void main() async {
     javaScriptAppKey: dotenv.env['KAKAO_JAVASCRIPT_APP_KEY'],
   );
 
-    // ──────────────────── 06/11 추가 ────────────────────────────
+  // ──────────────────── 06/11 추가 ────────────────────────────
   // 알림 하기 위한 로직
   // ─────────── Timezone DB 로드 ───────────
   tz.initializeTimeZones();
@@ -136,6 +140,16 @@ class _DxAppState extends State<DxApp> {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('userId', receivedUserId);
       print("저장된 userId: $receivedUserId");
+
+      // ─── ② userId 저장 후 즉시 /main으로 이동 ─────────────────────
+      navigatorKey.currentState?.pushReplacementNamed(
+        '/main',
+        arguments: {
+          'userId': int.parse(receivedUserId),
+          'initialIndex': 0, 
+          // 'editDiaryNum': diary.diaryNum, // ✅ 진짜 수정하는 경우에만 넘겨라
+        },
+      );
     }
     // nickname, token 등 추가 파라미터가 필요하다면 동일하게 저장
     // final receivedNick = uri.queryParameters['nickname'];
@@ -148,6 +162,7 @@ class _DxAppState extends State<DxApp> {
     final themeNotifier = Provider.of<ThemeNotifier>(context);
 
     return MaterialApp(
+      navigatorKey: navigatorKey,
       debugShowCheckedModeBanner: false,
       title: 'DX Project App',
 
@@ -161,33 +176,84 @@ class _DxAppState extends State<DxApp> {
       // 최초 진입 라우트
       initialRoute: '/intro',
 
-      routes: {
-        '/login': (context) => const LoginPage(),
-        '/signup': (context) => const SignupPage(),
+      // routes: {
+      //   '/login': (context) => const LoginPage(),
+      //   '/signup': (context) => const SignupPage(),
+      //
+      //   // ─────────────────── 탭으로 진입하는 경로들 ───────────────────
+      //   // '/main'로 들어오면 “홈 탭”이 활성화 된 MainWithTabs
+      //   '/main': (context) => const MainWithTabs(initialIndex: 0),
+      //
+      //   // '/calendar'로 들어오면 “캘린더 탭”이 활성화 된 MainWithTabs
+      //   '/calendar': (context) => const MainWithTabs(initialIndex: 1),
+      //
+      //   // '/write'를 탭 2(글쓰기 탭)로 재사용하고 싶다면
+      //   '/writeTab': (context) => const MainWithTabs(initialIndex: 2),
+      //
+      //   // '/history'로 들어오면 “히스토리 탭”이 활성화 된 MainWithTabs
+      //   '/history': (context) => const MainWithTabs(initialIndex: 3),
+      //
+      //   // '/member'로 들어오면 “멤버 탭”이 활성화 된 MainWithTabs
+      //   '/member': (context) => const MainWithTabs(initialIndex: 4),
+      //
+      //   // ─────────────────── 탭 외부로 띄우는 경로들 ───────────────────
+      //   '/intro': (context) => const IntroPage(),
+      //   '/detail': (context) => const DetailPage(),
+      //
+      //   // 혹시 탭 외부에서 직접 WritePage를 띄우고 싶으면
+      //   '/write': (context) => const WritePage(),
+      // },
 
-        // ─────────────────── 탭으로 진입하는 경로들 ───────────────────
-        // '/main'로 들어오면 “홈 탭”이 활성화 된 MainWithTabs
-        '/main': (context) => const MainWithTabs(initialIndex: 0),
+      onGenerateRoute: (settings) {
+        if (settings.name == '/main') {
+          final args = settings.arguments as Map<String, dynamic>? ?? {};
+          int userId = 0;
+          if (args['userId'] is int) {
+            userId = args['userId'];
+          } else if (args['userId'] is String) {
+            userId = int.tryParse(args['userId']) ?? 0;
+          }
+          return MaterialPageRoute(
+            builder: (_) => MainWithTabs(
+              userId: userId, // int로 무조건 변환해서 전달!
+              initialIndex: args['initialIndex'] ?? 0,
+              editDiaryNum: args['editDiaryNum'],
+            ),
+          );
+        }
 
-        // '/calendar'로 들어오면 “캘린더 탭”이 활성화 된 MainWithTabs
-        '/calendar': (context) => const MainWithTabs(initialIndex: 1),
+        if (settings.name == '/detail') {
+          final args = settings.arguments as Map<String, dynamic>;
+          return MaterialPageRoute(
+            builder: (_) => DetailPage(
+              diary: args['diary'],
+              source: args['source'] ?? 'home',
+              reward: args['reward'] ?? 0,
+            ),
+          );
+        }
 
-        // '/write'를 탭 2(글쓰기 탭)로 재사용하고 싶다면
-        '/writeTab': (context) => const MainWithTabs(initialIndex: 2),
+        if (settings.name == '/write') {
+          final args = settings.arguments as Map<String, dynamic>;
+          return MaterialPageRoute(
+            builder: (_) => WritePage(
+              userId: args['userId'],
+              editIdx: args['editIdx'],
+            ),
+          );
+        }
 
-        // '/history'로 들어오면 “히스토리 탭”이 활성화 된 MainWithTabs
-        '/history': (context) => const MainWithTabs(initialIndex: 3),
+        if (settings.name == '/history') {
+          final args = settings.arguments as Map<String, dynamic>?;
+          final userId = args?['userId'] ?? 0;
+          return MaterialPageRoute(
+            builder: (_) => HistoryPage(userId: userId),
+          );
+        }
 
-        // '/member'로 들어오면 “멤버 탭”이 활성화 된 MainWithTabs
-        '/member': (context) => const MainWithTabs(initialIndex: 4),
-
-        // ─────────────────── 탭 외부로 띄우는 경로들 ───────────────────
-        '/intro': (context) => const IntroPage(),
-        '/detail': (context) => const DetailPage(),
-
-        // 혹시 탭 외부에서 직접 WritePage를 띄우고 싶으면
-        '/write': (context) => const WritePage(),
+        return MaterialPageRoute(builder: (_) => const IntroPage());
       },
+
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
         GlobalWidgetsLocalizations.delegate,
@@ -205,25 +271,33 @@ class _DxAppState extends State<DxApp> {
 /// /main 루트에서 보여줄 탭 구조
 class MainWithTabs extends StatelessWidget {
   final int initialIndex;
-  const MainWithTabs({Key? key, this.initialIndex = 0}) : super(key: key);
+  final int userId; // ✅ 추가
+  final int? editDiaryNum; // ✅ editIdx 파라미터 추가
+
+  const MainWithTabs({
+    Key? key,
+    required this.userId, // ✅ 추가
+    this.initialIndex = 0,
+    this.editDiaryNum, // ✅ 선택적 파라미터
+  }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
       length: 5, // 탭 개수 (홈, 일정, 게시, 좋아요, 프로필)
       initialIndex: initialIndex, // 시작탭
-      child: const Scaffold(
-        body: const TabBarView(
-          physics: BouncingScrollPhysics(),
+      child: Scaffold(
+        body: TabBarView(
+          physics: const BouncingScrollPhysics(),
           children: [
-            MainPage(), // index = 0
-            CalendarPage(), // index = 1
-            WritePage(), // index = 2
-            HistoryPage(), // index = 3
-            MemberInfoPage(), // index = 4
+            MainPage(userId: userId), // index = 0
+            CalendarPage(userId: userId), // index = 1
+            WritePage(userId: userId, editIdx: editDiaryNum), // index = 2
+            HistoryPage(userId: userId), // index = 3
+            const MemberInfoPage(), // index = 4
           ],
         ),
-        bottomNavigationBar: BottomNav(),
+        bottomNavigationBar: const BottomNav(),
       ),
     );
   }

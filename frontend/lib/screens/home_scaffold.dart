@@ -7,21 +7,33 @@ import 'calendar_page.dart';
 import 'write_page.dart';
 
 class HomeScaffold extends StatefulWidget {
-  const HomeScaffold({Key? key}) : super(key: key);
+  final int userId;
+  final String nickname;
+  final String? token;
+
+  const HomeScaffold({
+    Key? key,
+    required this.userId,
+    required this.nickname,
+    this.token,
+  }) : super(key: key);
 
   @override
   _HomeScaffoldState createState() => _HomeScaffoldState();
 }
+
 /// ─────────────────────────────────────────────
 class _HomeScaffoldState extends State<HomeScaffold> {
-  final int _currentIndex = 0;
-  final List<Widget> _pages = const [
-    MainPage(),
-    CalendarPage(),
-    WritePage(),
-    HistoryPage(),
+  int _currentIndex = 0;
+  int? _editIdx;
+  late final List<Widget> _pages = [
+    MainPage(userId: widget.userId),
+    CalendarPage(userId: widget.userId),
+    WritePage(userId: widget.userId),
+    HistoryPage(userId: widget.userId),
     MemberInfoPage(),
   ];
+
   /// ─────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
@@ -33,7 +45,7 @@ class _HomeScaffoldState extends State<HomeScaffold> {
         duration: const Duration(milliseconds: 200),
         transitionBuilder: (child, anim) {
           final beginOffset =
-          Offset(_pages.indexOf(child) > _currentIndex ? 1 : -1, 0);
+              Offset(_pages.indexOf(child) > _currentIndex ? 1 : -1, 0);
           return SlideTransition(
             position: Tween<Offset>(begin: beginOffset, end: Offset.zero)
                 .animate(anim),
@@ -47,5 +59,6 @@ class _HomeScaffoldState extends State<HomeScaffold> {
       ),
     );
   }
-/// ─────────────────────────────────────────────
+
+  /// ─────────────────────────────────────────────
 }

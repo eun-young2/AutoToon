@@ -89,7 +89,7 @@ class _MemberInfoPageState extends State<MemberInfoPage> {
 
       if (response.statusCode == 200) {
         // ─── ② 응답 JSON 파싱
-        final data = jsonDecode(response.body);
+        final data = jsonDecode(utf8.decode(response.bodyBytes));
 
         setState(() {
           // 예시 JSON:
@@ -312,6 +312,10 @@ class _MemberInfoPageState extends State<MemberInfoPage> {
                           CharacterCard(
                               imagePath: 'assets/stamps/stamp_ver6.jpg',
                               label: '감정이들6',
+                              count: '0 / 5'),
+                          CharacterCard(
+                              imagePath: 'assets/stamps/stamp_ver7.png',
+                              label: '감정이들7',
                               count: '0 / 5'),
                         ],
                       ),

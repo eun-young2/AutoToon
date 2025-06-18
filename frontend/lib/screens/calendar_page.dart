@@ -6,11 +6,16 @@ import 'package:dx_project_dev2/widgets/sentiment_panel.dart';
 import 'package:dx_project_dev2/widgets/alert_dialogs.dart';
 import 'write_page.dart'; // postImages, postTitles, postContents, postDateTimes
 import 'package:flutter_datetime_picker_plus/flutter_datetime_picker_plus.dart'
-    as picker;
+as picker;
 import '../widgets/double_back_to_exit.dart';
+import '../services/api_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:dx_project_dev2/models/diary_model.dart';
+
 
 class CalendarPage extends StatefulWidget {
-  const CalendarPage({Key? key}) : super(key: key);
+  final int userId;
+  const CalendarPage({Key? key, required this.userId,}) : super(key: key);
 
   @override
   State<CalendarPage> createState() => _CalendarPageState();
@@ -20,15 +25,71 @@ class _CalendarPageState extends State<CalendarPage> {
   DateTime _focused = DateTime.now();
   DateTime? _selected;
   bool _statsExpanded = false;
+  List<DateTime> _monthlyDates = [];
+  List<Diary> _myDiaries = [];
+
+  // widget.userId로 초기화해 두면, prefs 로드 전에도 안전합니다
+  late int currentUserId = widget.userId;
+
+  @override
+  void initState() {
+    super.initState();
+    // _loadMonthData(); // 첫 렌더링 때
+    _initAndLoad(); // ← 변경: userId 먼저 로드
+  }
+
+  Future<void> _initAndLoad() async {
+    final prefs = await SharedPreferences.getInstance();
+    final stored = prefs.getString('userId');
+    currentUserId = stored != null
+        ? int.parse(stored)
+        : widget.userId;
+    print('[CalendarPage] loaded currentUserId=$currentUserId');
+    await _loadMonthData();
+    await _loadMyDiaries();
+  }
+
+  Future<void> _loadMyDiaries() async {
+    try {
+      final diaries = await ApiService.fetchUserDiaries(currentUserId);
+      setState(() {
+        _myDiaries = diaries;
+      });
+    } catch (e) {
+      // 에러 핸들링
+      setState(() {
+        _myDiaries = [];
+      });
+    }
+  }
+
+  List<Diary> get _diariesForSelected {
+    final selected = _selected ?? _focused;
+    return _myDiaries.where((d) => isSameDay(d.diaryDate, selected)).toList();
+  }
 
   bool isSameDay(DateTime a, DateTime b) =>
       a.year == b.year && a.month == b.month && a.day == b.day;
 
-  List<int> get _postsForSelected {
-    final selected = _selected ?? _focused;
-    return List.generate(postDateTimes.length, (i) => i)
-        .where((i) => isSameDay(postDateTimes[i], selected))
-        .toList();
+  // List<int> get _postsForSelected {
+  //   final selected = _selected ?? _focused;
+  //   return List.generate(postDateTimes.length, (i) => i)
+  //       .where((i) => isSameDay(postDateTimes[i], selected) &&
+  //         postUserIds[i] == currentUserId 
+  //       )
+  //       .toList();
+  // }
+
+  // 현재 포커스된 연·월에 대해 API 호출
+  Future<void> _loadMonthData() async {
+    final dates = await ApiService.fetchMonthlyDates(
+      userId: currentUserId,
+      year: _focused.year,
+      month: _focused.month,
+    );
+    setState(() {
+      _monthlyDates = dates;
+    });
   }
 
   void _changeMonth(DateTime newFocused) {
@@ -38,6 +99,7 @@ class _CalendarPageState extends State<CalendarPage> {
         _selected = null;
       }
     });
+    _loadMonthData(); // 포커스된 월이 바뀔 때마다
   }
 
   /// 두 번째 클릭했을때 상세페이지로 넘어가야 하는데 넘어갈 페이지가 없을때 띄우는 창
@@ -53,8 +115,9 @@ class _CalendarPageState extends State<CalendarPage> {
 
     // 3) 재클릭 && 게시글 없음일 때만 얼럿 (추후 없을때를 else로 빼고 있을때를 추가해야함)
     if (wasAlreadySelected) {
-      final posts = _postsForSelected; // 오늘 날짜에 해당하는 post 인덱스 리스트
-      if (posts.isEmpty) {
+      // final posts = _postsForSelected; // 오늘 날짜에 해당하는 post 인덱스 리스트
+      final diaries = _diariesForSelected;
+      if (diaries.isEmpty) {
         // 오늘인지 검사
         final isToday = isSameDay(day, DateTime.now());
         // 게시글 없을 때
@@ -66,7 +129,7 @@ class _CalendarPageState extends State<CalendarPage> {
           context,
           '/detail',
           arguments: {
-            'idx': posts.first,
+            'diary': diaries.first,
             'reward': 0,   // 보상이 없으면 0
             'source': 'calendar',
           },
@@ -93,7 +156,7 @@ class _CalendarPageState extends State<CalendarPage> {
     final panelRatio = _statsExpanded ? 0.5 : 0.3;
     final calendarHeight = totalHeight * (1 - panelRatio);
 
-// 3) 화면 크기에 따른 동적 그리드 높이 계산
+    // 3) 화면 크기에 따른 동적 그리드 높이 계산
     final daysOfWeekHeight = calendarHeight * 0.06;
     final rowHeight = (calendarHeight - daysOfWeekHeight) / 6.2;
 
@@ -127,13 +190,13 @@ class _CalendarPageState extends State<CalendarPage> {
         ),
         iconTheme: const IconThemeData(color: Colors.black),
       ),
-body: DoubleBackToExit(
+      body: DoubleBackToExit(
         child: SingleChildScrollView(
           physics: const BouncingScrollPhysics(),
           child: Column(
             children: [
               const SizedBox(height: 16),
-        
+
               /// ─────────────────────────────────────────────
               // 년/월/일 조절 가능 창 띄우기
               GestureDetector(
@@ -145,7 +208,7 @@ body: DoubleBackToExit(
                     minTime: DateTime(2000, 1, 1),
                     maxTime: DateTime(2100, 12, 31),
                     locale: picker.LocaleType.ko,
-        
+
                     // 사용자가 스크롤할 때마다 date가 바뀝니다.
                     onChanged: (_) {},
                     onConfirm: (date) {
@@ -189,7 +252,7 @@ body: DoubleBackToExit(
               ),
               /// ─────────────────────────────────────────────
               const SizedBox(height: 12),
-        
+
               /// ─────────────────────────────────────────────
               // 달력 영역: height에 따라 축소/확대
               AnimatedContainer(
@@ -202,11 +265,11 @@ body: DoubleBackToExit(
                     lastDay: DateTime.utc(2100),
                     focusedDay: _focused,
                     headerVisible: false,
-        
+
                     // 그리드 크기 지정: 요일 헤더와 각 행 높이 지정
                     daysOfWeekHeight: daysOfWeekHeight,
                     rowHeight: rowHeight,
-        
+
                     // 요일 글씨 스타일
                     daysOfWeekStyle: DaysOfWeekStyle(
                       weekdayStyle: TextStyle(
@@ -218,7 +281,7 @@ body: DoubleBackToExit(
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-        
+
                     // ② 다른 월 날짜 숨기기
                     calendarStyle: const CalendarStyle(
                       outsideDaysVisible: true,
@@ -236,25 +299,28 @@ body: DoubleBackToExit(
                     onPageChanged: (DateTime newFocused) {
                       _changeMonth(newFocused);
                     },
-                    
+
                     // 셀 커스터마이징
                     calendarBuilders: CalendarBuilders(
                       dowBuilder: (context, day) =>
-                        Container(
-                          decoration: BoxDecoration(
-                            border: Border.all(color: Colors.grey.shade100),
-                            color: Colors.white,
-                          ),
-                          alignment: Alignment.center,
-                          child: Text(
-                            DateFormat.E('ko_KR').format(day),
-                            style: TextStyle(
+                          Container(
+                            decoration: BoxDecoration(
+                              border: Border.all(color: Colors.grey.shade100),
+                              color: Colors.white,
+                            ),
+                            alignment: Alignment.center,
+                            child: Text(
+                              DateFormat.E('ko_KR').format(day),
+                              style: TextStyle(
                                 color: Colors.grey.shade600,
                                 fontWeight: FontWeight.w600,
+                              ),
                             ),
                           ),
-                        ),
                       defaultBuilder: (context, day, focusedDay) {
+                        final hasDiary = _monthlyDates.contains(
+                            DateTime(day.year, day.month, day.day)
+                        );
                         return Container(
                           decoration: BoxDecoration(
                             border: Border.all(color: Colors.grey.shade100),
@@ -280,8 +346,8 @@ body: DoubleBackToExit(
                                   width: 24,
                                   height: 24,
                                   child: Container(
-                                      // TODO: 실제 캐릭터 이미지로 교체
-                                      ),
+                                    // TODO: 실제 캐릭터 이미지로 교체
+                                  ),
                                 ),
                               ),
                             ],
@@ -324,11 +390,11 @@ body: DoubleBackToExit(
                                   child: Text(
                                     '${day.day}',
                                     style:
-                                        DefaultTextStyle.of(context).style.copyWith(
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.w600,
-                                              color: Colors.black87,
-                                            ),
+                                    DefaultTextStyle.of(context).style.copyWith(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.black87,
+                                    ),
                                   ),
                                 ),
                               ),
@@ -336,12 +402,12 @@ body: DoubleBackToExit(
                           ),
                         );
                       },
-        
+
                       // ③ 선택해도 “흰 배경+테두리” 유지
                       selectedBuilder: (ctx, day, focusedDay) {
                         // ① 오늘인지 검사
                         final isToday = isSameDay(day, DateTime.now());
-        
+
                         return Container(
                           decoration: BoxDecoration(
                             border: Border.all(color: Colors.grey.shade300, width: 2),
@@ -367,16 +433,16 @@ body: DoubleBackToExit(
                                     child: Text(
                                       '${day.day}',
                                       style:
-                                          DefaultTextStyle.of(context).style.copyWith(
-                                                fontSize: 12,
-                                                fontWeight: FontWeight.w600,
-                                                color: Colors.black87,
-                                              ),
+                                      DefaultTextStyle.of(context).style.copyWith(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.black87,
+                                      ),
                                     ),
                                   ),
                                 )
                               else
-                                // ③ 오늘이 아니면 기본 숫자 표시
+                              // ③ 오늘이 아니면 기본 숫자 표시
                                 Positioned(
                                   top: 4,
                                   left: 4,
@@ -407,7 +473,7 @@ body: DoubleBackToExit(
                 ),
               ),
               /// ─────────────────────────────────────────────
-        
+
               /// ─────────────────────────────────────────────
               // 통계 영역
               Transform.translate(
@@ -415,6 +481,7 @@ body: DoubleBackToExit(
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 300),
                   child: SentimentPanel(
+                    userId: currentUserId,
                     focused: _focused,
                     expanded: _statsExpanded,
                     onExpandChanged: (e) => setState(() => _statsExpanded = e),

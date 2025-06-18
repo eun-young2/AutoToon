@@ -74,11 +74,10 @@
 ### 일기작성/네컷만화 생성
 <p align="center">
   <img src="https://github.com/user-attachments/assets/853cf9be-ea77-4d39-af14-fc9a90977720" width="30%" />
-  <img src="https://github.com/user-attachments/assets/d1420d81-a81c-4a38-9fc9-51ef44c94f51" width="30%" />
-  <img src="https://github.com/user-attachments/assets/bfe0ab65-c1d7-4893-9f66-0b5182d642ad" width="30%" />
+  <img src="https://github.com/user-attachments/assets/20461451-2c9f-4f99-8877-27336470939c" width="30%" />
+  <img src="https://github.com/user-attachments/assets/4593b15e-4b78-4603-bc81-810ff6db94bc" width="30%" />
+
 </p>
-
-
 
 <br>
 

@@ -82,7 +82,7 @@
 
 <br>
 
-### 캘린더 조회
+### 캘린더 조회 및 감정통계 조회
 <p align="center">
   <img src="https://github.com/user-attachments/assets/6fb4eee5-3da8-438d-b584-f85dc26e8f4f" width="30%" />
   <img src="https://github.com/user-attachments/assets/9b0928fe-dbb3-4dc8-b470-caebb6cfb3bc" width="30%" />

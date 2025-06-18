@@ -27,7 +27,7 @@
 <br>
 
 ## ⚙ 시스템 아키텍처(구조) 예시 
-![시스템 아키텍처](https://github.com/user-attachments/assets/acd86627-db12-4996-b34b-18e6a554160c)
+![image](https://github.com/user-attachments/assets/d8cb3a0b-38c8-4d71-bac6-cbda91990b6f)
 
 
 

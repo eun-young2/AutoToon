@@ -98,7 +98,7 @@
 <br>
 
 ## 👨‍👩‍👦‍👦 팀원 역할
- <img src="https://github.com/user-attachments/assets/4cb11648-2119-4202-95ea-00bdb919b8a8" width="80%" />
+ <img src="https://github.com/user-attachments/assets/4cb11648-2119-4202-95ea-00bdb919b8a8" width="95%" />
 
 
 
